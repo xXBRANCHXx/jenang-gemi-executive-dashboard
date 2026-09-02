@@ -77,6 +77,18 @@ body { min-height: 100vh; margin: 0; background: var(--paper); color: var(--ink)
 .preview-body figure[data-shape="square"] img { aspect-ratio: 1; object-fit: cover; }
 .preview-body figure[data-shape="portrait"] img { aspect-ratio: 4 / 5; object-fit: cover; }
 .preview-body figcaption { padding: 10px 8px 0; color: var(--muted); font-size: 11px; line-height: 1.5; text-align: center; }
+.preview-body figure[data-youtube-id] { clear: both; width: 100% !important; float: none !important; margin: 2.3em auto !important; }
+.preview-body [data-youtube-trigger] { display: block; color: inherit; text-decoration: none; }
+.preview-body [data-youtube-thumbnail] { position: relative; aspect-ratio: 16 / 9; overflow: hidden; border-radius: 18px; background: #111; box-shadow: 0 18px 44px rgba(15, 23, 42, .18); cursor: pointer; }
+.preview-body [data-youtube-thumbnail]::after { position: absolute; inset: 45% 0 0; background: linear-gradient(transparent, rgba(0, 0, 0, .78)); content: ''; pointer-events: none; }
+.preview-body [data-youtube-thumbnail] img { width: 100%; height: 100%; max-height: none; border-radius: 0; object-fit: cover; transition: transform .35s ease, filter .35s ease; }
+.preview-body [data-youtube-trigger]:hover img { filter: brightness(.82); transform: scale(1.025); }
+.preview-body [data-youtube-play] { position: absolute; z-index: 2; top: 50%; left: 50%; display: grid; width: 64px; height: 46px; place-items: center; padding-left: 3px; transform: translate(-50%, -50%); border-radius: 13px; background: #ff0033; color: #fff; box-shadow: 0 12px 32px rgba(0, 0, 0, .3); font: 800 20px/1 Arial, sans-serif; }
+.preview-body [data-youtube-label] { position: absolute; z-index: 2; right: 18px; bottom: 15px; color: #fff; font-size: 11px; font-weight: 800; }
+.preview-body figure[data-youtube-id] figcaption { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 4px 0; text-align: left; }
+.preview-body [data-youtube-platform] { color: var(--muted); font-size: 10px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+.preview-body [data-youtube-link] { color: #28657f; font-size: 10px; font-weight: 800; text-decoration: none; }
+.preview-body [data-youtube-link]:hover { text-decoration: underline; }
 .preview-empty { padding: 32px; border: 1px dashed var(--line); border-radius: 16px; background: var(--paper-soft); color: var(--muted); text-align: center; }
 
 .preview-footer { display: flex; justify-content: center; gap: 8px 16px; padding: 28px 20px; border-top: 1px solid var(--line); color: var(--muted); font-size: 10px; text-align: center; }
@@ -87,11 +99,24 @@ body { min-height: 100vh; margin: 0; background: var(--paper); color: var(--ink)
 .preview-unavailable h1 { margin: 22px 0 10px; font-size: clamp(30px, 7vw, 46px); letter-spacing: -.045em; }
 .preview-unavailable p { margin: 0; color: var(--muted); font-size: 15px; line-height: 1.7; }
 
+.preview-youtube-dialog { width: min(900px, calc(100vw - 30px)); max-height: calc(100vh - 30px); padding: 0; overflow: hidden; border: 1px solid rgba(255, 255, 255, .14); border-radius: 21px; background: #090b0a; color: #fff; box-shadow: 0 40px 120px rgba(0, 0, 0, .62); }
+.preview-youtube-dialog::backdrop { background: rgba(3, 6, 9, .82); backdrop-filter: blur(9px); }
+.preview-youtube-card > header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 15px 17px; background: #111512; }
+.preview-youtube-card > header strong { font-size: 11px; }
+.preview-youtube-card > header button { display: grid; width: 34px; height: 34px; place-items: center; border: 0; border-radius: 50%; background: #242925; color: #fff; cursor: pointer; font-size: 20px; }
+.preview-youtube-frame { aspect-ratio: 16 / 9; background: #000; }
+.preview-youtube-frame iframe { display: block; width: 100%; height: 100%; border: 0; }
+.preview-youtube-card > footer { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 13px 17px; background: #111512; }
+.preview-youtube-card > footer span { color: #929a94; font-size: 9px; }
+.preview-youtube-card > footer a { flex: 0 0 auto; color: #fff; font-size: 10px; font-weight: 800; text-decoration: none; }
+.preview-youtube-card > footer a:hover { text-decoration: underline; }
+
 @media (max-width: 620px) {
   .preview-bar { grid-template-columns: auto 1fr; }
   .preview-bar-copy span { display: none; }
   .preview-status { display: none; }
   .preview-article { width: min(100% - 32px, 760px); padding-top: 48px; }
   .preview-body figure { width: 100%; float: none; margin: 2.3em auto; }
+  .preview-youtube-card > footer { align-items: flex-start; flex-direction: column; }
   .preview-footer { display: grid; }
 }

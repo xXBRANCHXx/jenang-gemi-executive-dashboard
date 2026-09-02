@@ -46,6 +46,18 @@ blog_expect(true, str_contains($croppedImageHtml, 'data-image-frame'), 'The safe
 blog_expect(false, str_contains($croppedImageHtml, 'position:fixed'), 'Authored image styles must be replaced by validated geometry.');
 blog_expect(true, str_contains($croppedImageHtml, '--figure-width:52%'), 'Validated image geometry should be emitted for public previews.');
 
+blog_expect('dQw4w9WgXcQ', jg_blog_youtube_id('https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=42'), 'Standard YouTube watch links should resolve to a video ID.');
+blog_expect('dQw4w9WgXcQ', jg_blog_youtube_id('https://youtu.be/dQw4w9WgXcQ?si=example'), 'Short YouTube share links should resolve to a video ID.');
+blog_expect('dQw4w9WgXcQ', jg_blog_youtube_id('https://www.youtube.com/shorts/dQw4w9WgXcQ'), 'YouTube Shorts links should resolve to a video ID.');
+blog_expect('', jg_blog_youtube_id('https://example.com/watch?v=dQw4w9WgXcQ'), 'Lookalike hosts must not be accepted as YouTube videos.');
+$youtubeHtml = jg_blog_sanitize_html('<figure data-youtube-id="dQw4w9WgXcQ" onclick="bad()"><a href="https://youtu.be/dQw4w9WgXcQ" data-youtube-trigger><div data-youtube-thumbnail><img src="https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg" alt="YouTube video preview"><span data-youtube-play>▶</span><span data-youtube-label>Watch video</span></div></a><figcaption><span data-youtube-platform>YouTube</span><a href="https://www.youtube.com/watch?v=dQw4w9WgXcQ" data-youtube-link>View on YouTube</a></figcaption><iframe src="https://evil.example"></iframe></figure>');
+blog_expect(true, str_contains($youtubeHtml, 'data-youtube-id="dQw4w9WgXcQ"'), 'Validated YouTube video IDs should survive sanitization.');
+blog_expect(true, str_contains($youtubeHtml, 'src="https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg"'), 'Only the canonical YouTube thumbnail should survive sanitization.');
+blog_expect(true, str_contains($youtubeHtml, 'data-youtube-trigger'), 'The safe preview trigger should survive sanitization.');
+blog_expect(true, str_contains($youtubeHtml, 'target="_blank"'), 'YouTube fallback links should open outside the article.');
+blog_expect(false, str_contains($youtubeHtml, '<iframe'), 'Article HTML must never persist a raw video iframe.');
+blog_expect(false, str_contains($youtubeHtml, 'onclick'), 'YouTube blocks must not retain inline event handlers.');
+
 $shareToken = str_repeat('a', 64);
 blog_expect(true, jg_blog_valid_share_token($shareToken), 'Private preview tokens must use a full 256 bits of hex data.');
 blog_expect(false, jg_blog_valid_share_token('short-token'), 'Malformed private preview tokens must be rejected.');

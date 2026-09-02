@@ -6,7 +6,7 @@ require dirname(__DIR__) . '/blog-builder-bootstrap.php';
 header('Cache-Control: no-store, max-age=0');
 header('X-Robots-Tag: noindex, nofollow, noarchive');
 header('Referrer-Policy: no-referrer');
-header("Content-Security-Policy: default-src 'none'; img-src 'self' data:; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; base-uri 'none'; form-action 'none'; frame-ancestors 'none'");
+header("Content-Security-Policy: default-src 'none'; img-src 'self' data: https://i.ytimg.com; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'self'; frame-src https://www.youtube-nocookie.com; base-uri 'none'; form-action 'none'; frame-ancestors 'none'");
 
 $token = strtolower(trim((string) ($_GET['token'] ?? '')));
 $post = null;
@@ -84,5 +84,13 @@ if (is_array($post) && !empty($post['updated_at'])) {
     </main>
     <footer class="preview-footer"><strong>ZERO private preview</strong><span>This draft is not live on the ZERO website.</span></footer>
 <?php endif; ?>
+    <dialog class="preview-youtube-dialog" data-youtube-player-dialog>
+        <div class="preview-youtube-card">
+            <header><strong>YouTube video</strong><button type="button" data-youtube-player-close aria-label="Close video player">×</button></header>
+            <div class="preview-youtube-frame" data-youtube-player-frame></div>
+            <footer><span>The player loads from YouTube after you choose to watch.</span><a href="#" target="_blank" rel="noopener noreferrer" data-youtube-player-link>View on YouTube ↗</a></footer>
+        </div>
+    </dialog>
+    <script type="module" src="./blog-preview.js?v=<?php echo urlencode((string) (@filemtime(__DIR__ . '/blog-preview.js') ?: '1')); ?>"></script>
 </body>
 </html>

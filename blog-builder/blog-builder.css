@@ -552,6 +552,32 @@
 .blog-body-editor figcaption:empty::before { content: "Add a caption (optional)"; opacity: .72; }
 .blog-body-editor.is-image-dragover { border-radius: 14px; outline: 2px dashed var(--admin-accent-primary); outline-offset: -8px; background: color-mix(in srgb, var(--admin-accent-primary) 5%, transparent); }
 
+.blog-body-editor figure[data-youtube-id],
+.blog-preview-body figure[data-youtube-id] { clear: both; width: 100% !important; float: none !important; margin: 2em auto !important; }
+.blog-body-editor [data-youtube-trigger],
+.blog-preview-body [data-youtube-trigger] { display: block; color: inherit; text-decoration: none; }
+.blog-body-editor [data-youtube-thumbnail],
+.blog-preview-body [data-youtube-thumbnail] { position: relative; aspect-ratio: 16 / 9; overflow: hidden; border-radius: 18px; background: #111; box-shadow: 0 18px 44px rgba(15, 23, 42, .18); cursor: pointer; }
+.blog-body-editor [data-youtube-thumbnail]::after,
+.blog-preview-body [data-youtube-thumbnail]::after { position: absolute; inset: 45% 0 0; background: linear-gradient(transparent, rgba(0, 0, 0, .78)); content: ''; pointer-events: none; }
+.blog-writing-page .blog-body-editor [data-youtube-thumbnail] img,
+.blog-preview-body [data-youtube-thumbnail] img { width: 100%; height: 100%; max-height: none; border-radius: 0; object-fit: cover; transition: transform .35s ease, filter .35s ease; }
+.blog-body-editor [data-youtube-trigger]:hover img,
+.blog-preview-body [data-youtube-trigger]:hover img { filter: brightness(.82); transform: scale(1.025); }
+.blog-body-editor [data-youtube-play],
+.blog-preview-body [data-youtube-play] { position: absolute; z-index: 2; top: 50%; left: 50%; display: grid; width: 64px; height: 46px; place-items: center; padding-left: 3px; transform: translate(-50%, -50%); border-radius: 13px; background: #ff0033; color: #fff; box-shadow: 0 12px 32px rgba(0, 0, 0, .3); font: 800 20px/1 Arial, sans-serif; }
+.blog-body-editor [data-youtube-label],
+.blog-preview-body [data-youtube-label] { position: absolute; z-index: 2; right: 18px; bottom: 15px; color: #fff; font: 800 11px/1 "Plus Jakarta Sans", sans-serif; letter-spacing: .02em; }
+.blog-body-editor figure[data-youtube-id] figcaption,
+.blog-preview-body figure[data-youtube-id] figcaption { display: flex; min-height: 0; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 4px 0; text-align: left; }
+.blog-body-editor [data-youtube-platform],
+.blog-preview-body [data-youtube-platform] { color: #69736a; font-size: 10px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+.blog-body-editor [data-youtube-link],
+.blog-preview-body [data-youtube-link] { color: #346d86; font-size: 10px; font-weight: 800; text-decoration: none; }
+.blog-body-editor [data-youtube-link]:hover,
+.blog-preview-body [data-youtube-link]:hover { text-decoration: underline; }
+.blog-youtube-remove { position: absolute; z-index: 4; top: 10px; right: 10px; min-height: 30px; padding: 0 11px; border: 1px solid rgba(255, 255, 255, .3); border-radius: 99px; background: rgba(12, 18, 13, .82); color: #fff; cursor: pointer; font: 800 9px/1 "Plus Jakarta Sans", sans-serif; backdrop-filter: blur(10px); }
+
 .blog-writing-footer { clear: both; display: flex; flex-wrap: wrap; gap: 8px 16px; padding-top: 14px; border-top: 1px solid var(--admin-border); color: var(--admin-muted); font-size: 9px; }
 .blog-writing-footer strong { color: var(--admin-text); }
 
@@ -846,6 +872,44 @@
 :root[data-admin-theme] .blog-preview-dialog .blog-preview-body blockquote { color: #465048; }
 :root[data-admin-theme] .blog-preview-dialog .blog-preview-body a { color: #346d86; }
 
+.blog-youtube-dialog,
+.blog-youtube-player-dialog { max-height: calc(100vh - 30px); padding: 0; overflow: hidden; border: 1px solid var(--admin-border); border-radius: 21px; background: var(--admin-surface); color: var(--admin-text); box-shadow: 0 40px 120px rgba(0, 0, 0, .62); }
+.blog-youtube-dialog { width: min(620px, calc(100vw - 30px)); }
+.blog-youtube-player-dialog { width: min(900px, calc(100vw - 30px)); background: #090b0a; color: #fff; }
+.blog-youtube-dialog::backdrop,
+.blog-youtube-player-dialog::backdrop { background: rgba(3, 6, 9, .82); backdrop-filter: blur(9px); }
+.blog-youtube-card { display: grid; gap: 18px; padding: 25px; }
+.blog-youtube-card > header { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 13px; }
+.blog-youtube-card h2 { margin: 3px 0 0; color: var(--admin-text); font-size: 22px; }
+.blog-youtube-mark { display: grid; width: 43px; height: 43px; place-items: center; border-radius: 13px; background: rgba(255, 0, 51, .12); color: #ff315a; }
+.blog-youtube-mark svg { width: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.blog-youtube-card > header > button,
+.blog-youtube-player-card > header > button { display: grid; width: 34px; height: 34px; place-items: center; border: 0; border-radius: 50%; background: var(--admin-surface-soft); color: var(--admin-text); cursor: pointer; font-size: 20px; }
+.blog-youtube-card > p { margin: 0; color: var(--admin-muted); font-size: 11px; line-height: 1.65; }
+.blog-youtube-url-field { display: grid; gap: 7px; }
+.blog-youtube-url-field > span { color: var(--admin-muted); font-size: 8px; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; }
+:root[data-admin-theme] .blog-youtube-url-field input { width: 100%; min-height: 44px; padding: 0 12px; border: 1px solid var(--admin-border); border-radius: 11px; outline: 0; background: var(--admin-surface-soft); color: var(--admin-text); box-shadow: none; font: 500 11px/1 "Plus Jakarta Sans", sans-serif; }
+:root[data-admin-theme] .blog-youtube-url-field input:focus { border-color: color-mix(in srgb, #ff315a 55%, var(--admin-border)); }
+.blog-youtube-url-field small { color: var(--admin-muted); font-size: 9px; }
+.blog-youtube-url-field small.is-error { color: #fb7185; }
+.blog-youtube-insert-preview { position: relative; aspect-ratio: 16 / 9; overflow: hidden; border-radius: 14px; background: #111; }
+.blog-youtube-insert-preview img { width: 100%; height: 100%; object-fit: cover; opacity: .72; }
+.blog-youtube-insert-preview > span { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 9px; color: #fff; }
+.blog-youtube-insert-preview i { display: grid; width: 54px; height: 40px; place-items: center; padding-left: 3px; border-radius: 11px; background: #ff0033; font: normal 800 17px/1 Arial, sans-serif; }
+.blog-youtube-insert-preview strong { font-size: 10px; }
+.blog-youtube-card > footer { display: flex; justify-content: flex-end; gap: 8px; }
+.blog-youtube-player-card > header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 15px 17px; background: #111512; }
+.blog-youtube-player-card > header span,
+.blog-youtube-player-card > header strong { display: block; }
+.blog-youtube-player-card > header strong { margin-top: 3px; font-size: 11px; }
+.blog-youtube-player-card > header > button { background: #242925; color: #fff; }
+.blog-youtube-player-frame { aspect-ratio: 16 / 9; background: #000; }
+.blog-youtube-player-frame iframe { display: block; width: 100%; height: 100%; border: 0; }
+.blog-youtube-player-card > footer { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 13px 17px; background: #111512; }
+.blog-youtube-player-card > footer span { color: #929a94; font-size: 9px; }
+.blog-youtube-player-card > footer a { flex: 0 0 auto; color: #fff; font-size: 10px; font-weight: 800; text-decoration: none; }
+.blog-youtube-player-card > footer a:hover { text-decoration: underline; }
+
 .blog-share-dialog { width: min(600px, calc(100vw - 30px)); max-height: calc(100vh - 30px); padding: 0; overflow: hidden; border: 1px solid var(--admin-border); border-radius: 21px; background: var(--admin-surface); color: var(--admin-text); box-shadow: 0 40px 120px rgba(0, 0, 0, .58); }
 .blog-share-dialog::backdrop { background: rgba(3, 6, 9, .78); backdrop-filter: blur(8px); }
 .blog-share-card { display: grid; gap: 18px; padding: 25px; }
@@ -1012,6 +1076,8 @@ button:disabled { cursor: not-allowed !important; opacity: .5; }
   .blog-share-card { padding: 20px; }
   .blog-share-link > div { grid-template-columns: 1fr; }
   .blog-share-link button { min-height: 36px; }
+  .blog-youtube-card { padding: 20px; }
+  .blog-youtube-player-card > footer { align-items: flex-start; flex-direction: column; }
 }
 
 @media (prefers-reduced-motion: reduce) {

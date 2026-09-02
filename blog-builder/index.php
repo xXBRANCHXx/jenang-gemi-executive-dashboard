@@ -211,6 +211,9 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/blog-builder.js');
                                                 <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9" r="1.5"/><path d="m21 15-5-5L5 20"/></svg>
                                             </button>
                                             <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple data-inline-image-input hidden>
+                                            <button type="button" data-add-youtube title="Embed YouTube video" aria-label="Embed YouTube video">
+                                                <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="4"/><path d="m10 9 5 3-5 3Z"/></svg>
+                                            </button>
                                             <button type="button" data-format="removeFormat" title="Clear formatting">
                                                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 7 10 10M5 5h14M12 5l-4 14M17 17h4"/></svg>
                                             </button>
@@ -323,6 +326,46 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/blog-builder.js');
                     <img data-preview-image alt="" hidden>
                     <div class="blog-preview-body" data-preview-body></div>
                 </article>
+            </div>
+        </dialog>
+
+        <dialog class="blog-youtube-dialog" data-youtube-dialog>
+            <form class="blog-youtube-card" data-youtube-form>
+                <header>
+                    <span class="blog-youtube-mark" aria-hidden="true">
+                        <svg viewBox="0 0 24 24"><rect x="2.5" y="5" width="19" height="14" rx="4"/><path d="m10 9 5 3-5 3Z"/></svg>
+                    </span>
+                    <div><span class="blog-eyebrow">Video block</span><h2>Embed a YouTube video</h2></div>
+                    <button type="button" data-youtube-close aria-label="Close YouTube video dialog">×</button>
+                </header>
+                <p>Paste a YouTube link. Readers will see a lightweight preview first, then can play it in a focused pop-up or open it on YouTube.</p>
+                <label class="blog-youtube-url-field">
+                    <span>YouTube URL</span>
+                    <input type="url" inputmode="url" autocomplete="off" placeholder="https://www.youtube.com/watch?v=…" data-youtube-url required>
+                    <small data-youtube-error>Supports youtube.com and youtu.be links.</small>
+                </label>
+                <div class="blog-youtube-insert-preview" data-youtube-insert-preview hidden>
+                    <img data-youtube-insert-image alt="YouTube video preview">
+                    <span><i>▶</i><strong>Preview ready</strong></span>
+                </div>
+                <footer>
+                    <button type="button" class="blog-secondary-button" data-youtube-cancel>Cancel</button>
+                    <button type="submit" class="blog-primary-button" data-youtube-insert disabled>Insert video</button>
+                </footer>
+            </form>
+        </dialog>
+
+        <dialog class="blog-youtube-player-dialog" data-youtube-player-dialog>
+            <div class="blog-youtube-player-card">
+                <header>
+                    <div><span class="blog-eyebrow">Video preview</span><strong>Playing from YouTube</strong></div>
+                    <button type="button" data-youtube-player-close aria-label="Close video player">×</button>
+                </header>
+                <div class="blog-youtube-player-frame" data-youtube-player-frame></div>
+                <footer>
+                    <span>YouTube may use cookies and collect viewing data when playback starts.</span>
+                    <a href="#" target="_blank" rel="noopener noreferrer" data-youtube-player-link>View on YouTube ↗</a>
+                </footer>
             </div>
         </dialog>
 

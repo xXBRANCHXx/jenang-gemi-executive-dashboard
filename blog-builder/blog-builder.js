@@ -39,6 +39,16 @@ if (root) {
     coverPreview: root.querySelector('[data-cover-preview]'),
     coverChange: root.querySelector('[data-cover-change]'),
     inlineImageInput: root.querySelector('[data-inline-image-input]'),
+    youtubeDialog: root.querySelector('[data-youtube-dialog]'),
+    youtubeForm: root.querySelector('[data-youtube-form]'),
+    youtubeUrl: root.querySelector('[data-youtube-url]'),
+    youtubeInsert: root.querySelector('[data-youtube-insert]'),
+    youtubeInsertPreview: root.querySelector('[data-youtube-insert-preview]'),
+    youtubeInsertImage: root.querySelector('[data-youtube-insert-image]'),
+    youtubeError: root.querySelector('[data-youtube-error]'),
+    youtubePlayerDialog: root.querySelector('[data-youtube-player-dialog]'),
+    youtubePlayerFrame: root.querySelector('[data-youtube-player-frame]'),
+    youtubePlayerLink: root.querySelector('[data-youtube-player-link]'),
     currentStatus: root.querySelector('[data-current-status]'),
     articleMeta: root.querySelector('[data-article-meta]'),
     slugPreview: root.querySelector('[data-slug-preview]'),
@@ -118,13 +128,34 @@ if (root) {
 
   const wordCount = (value) => (String(value || '').match(/[\p{L}\p{N}]+(?:['’\-][\p{L}\p{N}]+)*/gu) || []).length;
 
+  const youtubeVideoId = (value) => {
+    const input = String(value || '').trim();
+    if (/^[A-Za-z0-9_-]{11}$/.test(input)) return input;
+    let url;
+    try { url = new URL(input); } catch (_error) { return ''; }
+    const hostname = url.hostname.toLowerCase().replace(/^(www\.|m\.)/, '');
+    let candidate = '';
+    if (hostname === 'youtu.be') candidate = url.pathname.split('/').filter(Boolean)[0] || '';
+    if (hostname === 'youtube.com' || hostname === 'youtube-nocookie.com') {
+      candidate = url.searchParams.get('v') || '';
+      if (!candidate) {
+        const parts = url.pathname.split('/').filter(Boolean);
+        if (['embed', 'shorts', 'live'].includes(parts[0])) candidate = parts[1] || '';
+      }
+    }
+    return /^[A-Za-z0-9_-]{11}$/.test(candidate) ? candidate : '';
+  };
+
+  const youtubeWatchUrl = (id) => `https://www.youtube.com/watch?v=${id}`;
+  const youtubeThumbnailUrl = (id) => `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
+
   const safePreviewHtml = (html) => {
     const template = document.createElement('template');
     template.innerHTML = html || '';
     template.content.querySelectorAll('script,style,iframe,object,embed,form,input,button,video,audio').forEach((node) => node.remove());
     template.content.querySelectorAll('img').forEach((image) => {
       const src = image.getAttribute('src') || '';
-      if (!/^\/api\/blogs\/?\?action=asset&id=\d+$/i.test(src)) {
+      if (!/^\/api\/blogs\/?\?action=asset&id=\d+$/i.test(src) && !/^https:\/\/i\.ytimg\.com\/vi\/[A-Za-z0-9_-]{11}\/hqdefault\.jpg$/i.test(src)) {
         image.remove();
         return;
       }
@@ -137,14 +168,24 @@ if (root) {
     template.content.querySelectorAll('*').forEach((node) => {
       [...node.attributes].forEach((attribute) => {
         const tag = node.tagName.toLowerCase();
-        const allowed = tag === 'a' ? ['href', 'rel']
+        const allowed = tag === 'a' ? ['href', 'rel', 'target', 'data-youtube-trigger', 'data-youtube-link']
           : tag === 'img' ? ['src', 'alt', 'loading', 'decoding']
-            : tag === 'figure' ? ['data-scale', 'data-shape', 'data-width', 'data-align', 'data-crop-top', 'data-crop-right', 'data-crop-bottom', 'data-crop-left', 'data-aspect']
-              : tag === 'div' ? ['data-image-frame'] : [];
+            : tag === 'figure' ? ['data-scale', 'data-shape', 'data-width', 'data-align', 'data-crop-top', 'data-crop-right', 'data-crop-bottom', 'data-crop-left', 'data-aspect', 'data-youtube-id']
+              : tag === 'div' ? ['data-image-frame', 'data-youtube-thumbnail']
+                : tag === 'span' ? ['data-youtube-play', 'data-youtube-label', 'data-youtube-platform'] : [];
         if (!allowed.includes(attribute.name) || (attribute.name === 'href' && !/^(https?:|mailto:|#)/i.test(attribute.value))) node.removeAttribute(attribute.name);
       });
     });
     template.content.querySelectorAll('figure').forEach((figure) => {
+      const videoId = youtubeVideoId(figure.dataset.youtubeId);
+      if (videoId) {
+        figure.dataset.youtubeId = videoId;
+        [...figure.attributes].forEach((attribute) => {
+          if (attribute.name !== 'data-youtube-id') figure.removeAttribute(attribute.name);
+        });
+        return;
+      }
+      delete figure.dataset.youtubeId;
       const scale = Number(figure.dataset.scale);
       const width = Number(figure.dataset.width || scale);
       figure.dataset.width = String(Number.isFinite(width) ? Math.min(100, Math.max(25, Math.round(width))) : 100);
@@ -484,6 +525,7 @@ if (root) {
 
   const enhanceFigure = (figure) => {
     if (!(figure instanceof HTMLElement)) return;
+    if (figure.dataset.youtubeId) return;
     const image = figure.querySelector('img');
     if (!image) return;
     let frame = figure.querySelector('[data-image-frame]');
@@ -519,11 +561,27 @@ if (root) {
     applyFigureGeometry(figure);
   };
 
-  const enhanceFigures = () => elements.body.querySelectorAll('figure').forEach(enhanceFigure);
+  const enhanceYoutubeEmbeds = () => elements.body.querySelectorAll('figure[data-youtube-id]').forEach((figure) => {
+    figure.contentEditable = 'false';
+    figure.querySelectorAll('[data-youtube-editor-control]').forEach((control) => control.remove());
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.dataset.youtubeEditorControl = '';
+    remove.dataset.youtubeRemove = '';
+    remove.className = 'blog-youtube-remove';
+    remove.setAttribute('aria-label', 'Remove YouTube video');
+    remove.textContent = 'Remove';
+    figure.append(remove);
+  });
+
+  const enhanceFigures = () => {
+    elements.body.querySelectorAll('figure').forEach(enhanceFigure);
+    enhanceYoutubeEmbeds();
+  };
 
   const serializedBodyHtml = () => {
     const clone = elements.body.cloneNode(true);
-    clone.querySelectorAll('[data-image-handle], [data-crop-hint]').forEach((node) => node.remove());
+    clone.querySelectorAll('[data-image-handle], [data-crop-hint], [data-youtube-editor-control]').forEach((node) => node.remove());
     clone.querySelectorAll('figure').forEach((figure) => {
       figure.classList.remove('is-selected', 'is-cropping');
       figure.removeAttribute('contenteditable');
@@ -962,6 +1020,88 @@ if (root) {
     }
   };
 
+  const updateYoutubeInsertPreview = () => {
+    const id = youtubeVideoId(elements.youtubeUrl.value);
+    elements.youtubeInsert.disabled = !id;
+    elements.youtubeInsertPreview.hidden = !id;
+    elements.youtubeError.classList.toggle('is-error', Boolean(elements.youtubeUrl.value.trim()) && !id);
+    elements.youtubeError.textContent = id
+      ? 'Ready to insert. The video will only load after a reader presses play.'
+      : 'Supports youtube.com and youtu.be links.';
+    if (id) elements.youtubeInsertImage.src = youtubeThumbnailUrl(id);
+    else elements.youtubeInsertImage.removeAttribute('src');
+  };
+
+  const closeYoutubeInsert = () => {
+    if (elements.youtubeDialog.open) elements.youtubeDialog.close();
+  };
+
+  const openYoutubeInsert = () => {
+    elements.youtubeUrl.value = '';
+    updateYoutubeInsertPreview();
+    elements.youtubeDialog.showModal();
+    window.setTimeout(() => elements.youtubeUrl.focus(), 0);
+  };
+
+  const insertYoutubeVideo = (id, requestedRange = null) => {
+    const range = rangeBelongsToEditor(requestedRange)
+      ? requestedRange
+      : (rangeBelongsToEditor(state.editorRange) ? state.editorRange : document.createRange());
+    if (!rangeBelongsToEditor(range)) {
+      range.selectNodeContents(elements.body);
+      range.collapse(false);
+    }
+
+    const watchUrl = youtubeWatchUrl(id);
+    const figure = document.createElement('figure');
+    figure.dataset.youtubeId = id;
+    figure.innerHTML = `<a href="${watchUrl}" target="_blank" rel="noopener noreferrer" data-youtube-trigger><div data-youtube-thumbnail><img src="${youtubeThumbnailUrl(id)}" alt="YouTube video preview" loading="lazy" decoding="async"><span data-youtube-play aria-hidden="true">▶</span><span data-youtube-label>Watch video</span></div></a><figcaption><span data-youtube-platform>YouTube</span><a href="${watchUrl}" target="_blank" rel="noopener noreferrer" data-youtube-link>View on YouTube ↗</a></figcaption>`;
+    const continuation = document.createElement('p');
+    continuation.append(document.createElement('br'));
+
+    range.deleteContents();
+    let anchor = range.startContainer.nodeType === Node.ELEMENT_NODE ? range.startContainer : range.startContainer.parentElement;
+    while (anchor && anchor !== elements.body && anchor.parentElement !== elements.body) anchor = anchor.parentElement;
+    if (anchor && anchor !== elements.body) {
+      anchor.after(figure, continuation);
+    } else {
+      const reference = elements.body.childNodes[range.startOffset] || null;
+      elements.body.insertBefore(figure, reference);
+      figure.after(continuation);
+    }
+
+    enhanceYoutubeEmbeds();
+    const selection = window.getSelection();
+    const typingRange = document.createRange();
+    typingRange.setStart(continuation, 0);
+    typingRange.collapse(true);
+    selection?.removeAllRanges();
+    selection?.addRange(typingRange);
+    state.editorRange = typingRange.cloneRange();
+    elements.body.focus();
+    markDirty();
+    showToast('YouTube video added.');
+  };
+
+  const closeYoutubePlayer = () => {
+    elements.youtubePlayerFrame.replaceChildren();
+    if (elements.youtubePlayerDialog.open) elements.youtubePlayerDialog.close();
+  };
+
+  const openYoutubePlayer = (id) => {
+    const videoId = youtubeVideoId(id);
+    if (!videoId) return;
+    const iframe = document.createElement('iframe');
+    iframe.src = `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&rel=0`;
+    iframe.title = 'YouTube video player';
+    iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+    iframe.referrerPolicy = 'strict-origin-when-cross-origin';
+    iframe.allowFullscreen = true;
+    elements.youtubePlayerFrame.replaceChildren(iframe);
+    elements.youtubePlayerLink.href = youtubeWatchUrl(videoId);
+    elements.youtubePlayerDialog.showModal();
+  };
+
   const openPreview = () => {
     const topic = topics[elements.topic.value] || topics['healthy-eating'];
     root.querySelector('[data-preview-topic]').textContent = topic.label;
@@ -1253,7 +1393,10 @@ if (root) {
       markDirty();
     }));
     elements.body.addEventListener('input', markDirty);
-    elements.body.addEventListener('click', (event) => selectFigure(event.target.closest('figure')));
+    elements.body.addEventListener('click', (event) => {
+      const figure = event.target.closest('figure');
+      selectFigure(figure?.dataset.youtubeId ? null : figure);
+    });
     elements.body.addEventListener('dblclick', (event) => {
       const figure = event.target.closest('figure');
       if (!figure || !event.target.closest('[data-image-frame]')) return;
@@ -1328,6 +1471,44 @@ if (root) {
     root.querySelector('[data-inline-image]').addEventListener('pointerdown', rememberEditorRange);
     root.querySelector('[data-inline-image]').addEventListener('click', () => elements.inlineImageInput.click());
     elements.inlineImageInput.addEventListener('change', () => uploadInlineImages(elements.inlineImageInput.files, state.editorRange));
+    root.querySelector('[data-add-youtube]').addEventListener('pointerdown', rememberEditorRange);
+    root.querySelector('[data-add-youtube]').addEventListener('click', openYoutubeInsert);
+    elements.youtubeUrl.addEventListener('input', updateYoutubeInsertPreview);
+    elements.youtubeForm.addEventListener('submit', (event) => {
+      event.preventDefault();
+      const id = youtubeVideoId(elements.youtubeUrl.value);
+      if (!id) {
+        elements.youtubeError.classList.add('is-error');
+        elements.youtubeError.textContent = 'Paste a valid public YouTube video link.';
+        elements.youtubeUrl.focus();
+        return;
+      }
+      const insertionRange = state.editorRange?.cloneRange?.() || null;
+      closeYoutubeInsert();
+      insertYoutubeVideo(id, insertionRange);
+    });
+    root.querySelector('[data-youtube-close]').addEventListener('click', closeYoutubeInsert);
+    root.querySelector('[data-youtube-cancel]').addEventListener('click', closeYoutubeInsert);
+    elements.youtubeDialog.addEventListener('click', (event) => { if (event.target === elements.youtubeDialog) closeYoutubeInsert(); });
+    root.addEventListener('click', (event) => {
+      const remove = event.target.closest('[data-youtube-remove]');
+      if (remove) {
+        const figure = remove.closest('figure[data-youtube-id]');
+        figure?.remove();
+        markDirty();
+        showToast('YouTube video removed.');
+        return;
+      }
+      const trigger = event.target.closest('[data-youtube-trigger]');
+      if (!trigger) return;
+      const id = trigger.closest('figure[data-youtube-id]')?.dataset.youtubeId;
+      if (!id) return;
+      event.preventDefault();
+      openYoutubePlayer(id);
+    });
+    root.querySelector('[data-youtube-player-close]').addEventListener('click', closeYoutubePlayer);
+    elements.youtubePlayerDialog.addEventListener('click', (event) => { if (event.target === elements.youtubePlayerDialog) closeYoutubePlayer(); });
+    elements.youtubePlayerDialog.addEventListener('close', () => elements.youtubePlayerFrame.replaceChildren());
     root.querySelectorAll('[data-image-align]').forEach((button) => button.addEventListener('click', () => {
       if (!state.selectedFigure) return;
       state.selectedFigure.dataset.align = button.dataset.imageAlign;

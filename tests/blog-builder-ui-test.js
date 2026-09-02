@@ -11,6 +11,7 @@ const bootstrap = fs.readFileSync(path.join(root, 'blog-builder-bootstrap.php'),
 const css = fs.readFileSync(path.join(root, 'blog-builder/blog-builder.css'), 'utf8');
 const sharedPreview = fs.readFileSync(path.join(root, 'blog-preview/index.php'), 'utf8');
 const sharedPreviewCss = fs.readFileSync(path.join(root, 'blog-preview/blog-preview.css'), 'utf8');
+const sharedPreviewJs = fs.readFileSync(path.join(root, 'blog-preview/blog-preview.js'), 'utf8');
 
 const expect = (condition, message) => {
   if (!condition) throw new Error(message);
@@ -25,6 +26,7 @@ for (const control of [
   'data-history-dialog', 'data-seo-description', 'data-checklist', 'data-library-search',
   'data-inline-image', 'data-inline-image-input', 'data-share-preview', 'data-share-dialog',
   'data-undo', 'data-redo', 'data-image-align', 'data-image-reset-crop', 'data-article-font-select',
+  'data-add-youtube', 'data-youtube-dialog', 'data-youtube-player-dialog', 'data-youtube-player-link',
   'data-delivery-control', 'data-delivery-mode="sandbox"', 'data-delivery-mode="live"'
 ]) {
   expect(php.includes(control), `Builder is missing ${control}.`);
@@ -55,7 +57,11 @@ expect(php.includes('data-more-toggle') && css.includes('.blog-more-button svg')
 expect(api.includes("action === 'share_preview'") && api.includes("action === 'disable_preview'"), 'Authenticated editors must be able to create and revoke preview links.');
 expect(sharedPreview.includes("X-Robots-Tag: noindex, nofollow, noarchive"), 'Shared drafts must stay out of search engines.');
 expect(sharedPreview.includes('jg_blog_public_body_html'), 'Shared previews must render sanitized article HTML.');
+expect(sharedPreview.includes('www.youtube-nocookie.com') && sharedPreview.includes('data-youtube-player-dialog'), 'Shared previews must permit the privacy-enhanced YouTube player and provide its focused dialog.');
+expect(sharedPreviewJs.includes('youtube-nocookie.com/embed/') && sharedPreviewJs.includes('data-youtube-trigger'), 'Shared previews must open saved video cards in the focused YouTube player.');
 expect(js.includes('enableSharedPreview') && js.includes('copySharedPreview'), 'The editor must create and copy private preview links.');
+expect(js.includes('youtubeVideoId') && js.includes('youtube-nocookie.com/embed/') && js.includes('insertYoutubeVideo'), 'The editor must validate, insert, and preview YouTube video blocks.');
+expect(js.includes("[data-youtube-editor-control]") && js.includes('clone.querySelectorAll'), 'Editor-only YouTube controls must not be saved into article HTML.');
 expect(!php.includes('data-image-scale') && !php.includes('type="range"'), 'Image sizing must use direct manipulation instead of a scale slider.');
 expect(js.includes('const HISTORY_LIMIT = 100') && js.includes('const undo = () =>') && js.includes('const redo = () =>'), 'The editor must retain a conventional 100-step undo/redo history.');
 expect(js.includes("key === 'z' && !event.shiftKey") && js.includes("key === 'z' && event.shiftKey"), 'Ctrl/Cmd+Z and Ctrl/Cmd+Shift+Z must operate article history.');
@@ -66,6 +72,7 @@ expect(js.includes("? 'pan' : 'place'") && js.includes("horizontalPosition < .36
 expect(css.includes('.blog-image-layout { position: fixed;') && css.includes('z-index: 80') && js.includes('const positionImageLayout = () =>'), 'Selected image controls must float above and follow the selected image.');
 expect(css.includes('.blog-body-editor { display: flow-root;') && css.includes('.blog-writing-footer { clear: both;'), 'Wrapped images must remain inside the writing paper and clear the article footer.');
 expect(sharedPreviewCss.includes('figure[data-align="left"]') && sharedPreviewCss.includes('[data-image-frame]'), 'Shared previews must render text wrapping and saved crops.');
+expect(css.includes('figure[data-youtube-id]') && sharedPreviewCss.includes('figure[data-youtube-id]'), 'YouTube previews must have a responsive landing-page treatment in the editor and shared preview.');
 expect(bootstrap.includes('zero_blog_post_styles') && bootstrap.includes('function jg_blog_fonts'), 'Article font choices must persist independently from dashboard themes.');
 
 console.log('blog builder UI tests passed');

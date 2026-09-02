@@ -251,6 +251,46 @@ function jg_blog_safe_asset_src(string $src): string
     return '/api/blogs/?action=asset&id=' . $id;
 }
 
+function jg_blog_youtube_id(mixed $value): string
+{
+    $value = trim((string) $value);
+    if (preg_match('/^[A-Za-z0-9_-]{11}$/', $value) === 1) {
+        return $value;
+    }
+    $parts = parse_url($value);
+    if (!is_array($parts)) {
+        return '';
+    }
+    $host = strtolower((string) ($parts['host'] ?? ''));
+    $host = preg_replace('/^(www\.|m\.)/', '', $host) ?? $host;
+    $pathParts = array_values(array_filter(explode('/', trim((string) ($parts['path'] ?? ''), '/'))));
+    $candidate = '';
+    if ($host === 'youtu.be') {
+        $candidate = (string) ($pathParts[0] ?? '');
+    } elseif (in_array($host, ['youtube.com', 'youtube-nocookie.com'], true)) {
+        parse_str((string) ($parts['query'] ?? ''), $query);
+        $candidate = trim((string) ($query['v'] ?? ''));
+        if ($candidate === '' && in_array((string) ($pathParts[0] ?? ''), ['embed', 'shorts', 'live'], true)) {
+            $candidate = (string) ($pathParts[1] ?? '');
+        }
+    }
+    return preg_match('/^[A-Za-z0-9_-]{11}$/', $candidate) === 1 ? $candidate : '';
+}
+
+function jg_blog_youtube_watch_url(string $videoId): string
+{
+    $videoId = jg_blog_youtube_id($videoId);
+    return $videoId !== '' ? 'https://www.youtube.com/watch?v=' . $videoId : '';
+}
+
+function jg_blog_safe_youtube_thumbnail_src(string $src): string
+{
+    if (preg_match('~^https://i\.ytimg\.com/vi/([A-Za-z0-9_-]{11})/hqdefault\.jpg$~i', trim($src), $matches) !== 1) {
+        return '';
+    }
+    return 'https://i.ytimg.com/vi/' . $matches[1] . '/hqdefault.jpg';
+}
+
 function jg_blog_sanitize_html(mixed $html): string
 {
     $html = trim((string) $html);
@@ -268,7 +308,7 @@ function jg_blog_sanitize_html(mixed $html): string
         return '';
     }
 
-    $allowed = ['p', 'h2', 'h3', 'ul', 'ol', 'li', 'strong', 'em', 'a', 'blockquote', 'br', 'figure', 'div', 'img', 'figcaption'];
+    $allowed = ['p', 'h2', 'h3', 'ul', 'ol', 'li', 'strong', 'em', 'a', 'blockquote', 'br', 'figure', 'div', 'img', 'figcaption', 'span'];
     $walk = static function (DOMNode $parent) use (&$walk, $allowed): void {
         for ($node = $parent->firstChild; $node !== null;) {
             $next = $node->nextSibling;
@@ -305,7 +345,14 @@ function jg_blog_sanitize_html(mixed $html): string
                 $originalCropRight = $tag === 'figure' ? $node->getAttribute('data-crop-right') : '';
                 $originalCropBottom = $tag === 'figure' ? $node->getAttribute('data-crop-bottom') : '';
                 $originalCropLeft = $tag === 'figure' ? $node->getAttribute('data-crop-left') : '';
+                $originalYoutubeId = $tag === 'figure' ? $node->getAttribute('data-youtube-id') : '';
                 $isImageFrame = $tag === 'div' && $node->hasAttribute('data-image-frame');
+                $isYoutubeThumbnail = $tag === 'div' && $node->hasAttribute('data-youtube-thumbnail');
+                $isYoutubeTrigger = $tag === 'a' && $node->hasAttribute('data-youtube-trigger');
+                $isYoutubeLink = $tag === 'a' && $node->hasAttribute('data-youtube-link');
+                $isYoutubePlay = $tag === 'span' && $node->hasAttribute('data-youtube-play');
+                $isYoutubeLabel = $tag === 'span' && $node->hasAttribute('data-youtube-label');
+                $isYoutubePlatform = $tag === 'span' && $node->hasAttribute('data-youtube-platform');
                 $walk($node);
                 foreach (iterator_to_array($node->attributes) as $attribute) {
                     $node->removeAttribute($attribute->name);
@@ -317,10 +364,19 @@ function jg_blog_sanitize_html(mixed $html): string
                         if (str_starts_with($safeHref, 'http')) {
                             $node->setAttribute('rel', 'noopener noreferrer');
                         }
+                        $youtubeId = jg_blog_youtube_id($safeHref);
+                        if ($youtubeId !== '' && ($isYoutubeTrigger || $isYoutubeLink)) {
+                            $node->setAttribute('href', jg_blog_youtube_watch_url($youtubeId));
+                            $node->setAttribute($isYoutubeTrigger ? 'data-youtube-trigger' : 'data-youtube-link', '');
+                            $node->setAttribute('target', '_blank');
+                        }
                     }
                 }
                 if ($tag === 'img') {
                     $safeSrc = jg_blog_safe_asset_src($originalSrc);
+                    if ($safeSrc === '') {
+                        $safeSrc = jg_blog_safe_youtube_thumbnail_src($originalSrc);
+                    }
                     if ($safeSrc === '') {
                         $parent->removeChild($node);
                         $node = $next;
@@ -334,7 +390,25 @@ function jg_blog_sanitize_html(mixed $html): string
                 if ($tag === 'div' && $isImageFrame) {
                     $node->setAttribute('data-image-frame', '');
                 }
+                if ($tag === 'div' && $isYoutubeThumbnail) {
+                    $node->setAttribute('data-youtube-thumbnail', '');
+                }
+                if ($tag === 'span' && $isYoutubePlay) {
+                    $node->setAttribute('data-youtube-play', '');
+                }
+                if ($tag === 'span' && $isYoutubeLabel) {
+                    $node->setAttribute('data-youtube-label', '');
+                }
+                if ($tag === 'span' && $isYoutubePlatform) {
+                    $node->setAttribute('data-youtube-platform', '');
+                }
                 if ($tag === 'figure') {
+                    $youtubeId = jg_blog_youtube_id($originalYoutubeId);
+                    if ($youtubeId !== '') {
+                        $node->setAttribute('data-youtube-id', $youtubeId);
+                        $node = $next;
+                        continue;
+                    }
                     $scale = (int) $originalScale;
                     $legacyScale = in_array($scale, [40, 50, 60, 70, 80, 90, 100], true) ? $scale : 100;
                     $width = $originalWidth !== '' ? (int) $originalWidth : $legacyScale;
