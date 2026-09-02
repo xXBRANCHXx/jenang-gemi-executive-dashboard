@@ -78,5 +78,8 @@ expect(css.includes('figure[data-youtube-id]') && sharedPreviewCss.includes('fig
 expect(css.includes('var(--youtube-width, 100%)') && sharedPreviewCss.includes('var(--youtube-width, 100%)'), 'Saved YouTube widths must render consistently in dashboard and shared previews.');
 expect(css.includes('data-youtube-align="right"') && sharedPreviewCss.includes('data-youtube-align="right"'), 'Saved YouTube placement must render consistently in dashboard and shared previews.');
 expect(bootstrap.includes('zero_blog_post_styles') && bootstrap.includes('function jg_blog_fonts'), 'Article font choices must persist independently from dashboard themes.');
+expect(php.includes('class="blog-format-group"') && php.includes('aria-label="Links and media"'), 'Formatting controls must be grouped so they can wrap together at narrow widths.');
+expect(/\.blog-format-toolbar\s*\{[^}]*flex-wrap:\s*wrap;/s.test(css), 'The formatting toolbar must wrap so every control remains visible at every editor width.');
+expect(!css.includes('.blog-format-toolbar { overflow-x: auto; }'), 'The formatting toolbar must not hide controls behind horizontal scrolling.');
 
 console.log('blog builder UI tests passed');

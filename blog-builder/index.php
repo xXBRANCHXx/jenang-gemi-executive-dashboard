@@ -185,38 +185,43 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/blog-builder.js');
                                                 <option value="<?php echo htmlspecialchars($fontKey, ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars($fontLabel, ENT_QUOTES, 'UTF-8'); ?></option>
 <?php endforeach; ?>
                                             </select></label>
-                                            <span></span>
-                                            <button type="button" data-undo title="Undo (Ctrl+Z)" aria-label="Undo" disabled>
-                                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 7-5 5 5 5"/><path d="M20 17a7 7 0 0 0-7-7H4"/></svg>
-                                            </button>
-                                            <button type="button" data-redo title="Redo (Ctrl+Shift+Z)" aria-label="Redo" disabled>
-                                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 7 5 5-5 5"/><path d="M4 17a7 7 0 0 1 7-7h9"/></svg>
-                                            </button>
-                                            <span></span>
-                                            <button type="button" data-format="formatBlock" data-value="p" title="Paragraph">P</button>
-                                            <button type="button" data-format="formatBlock" data-value="h2" title="Heading 2">H2</button>
-                                            <button type="button" data-format="formatBlock" data-value="h3" title="Heading 3">H3</button>
-                                            <span></span>
-                                            <button type="button" data-format="bold" title="Bold"><strong>B</strong></button>
-                                            <button type="button" data-format="italic" title="Italic"><em>I</em></button>
-                                            <button type="button" data-format="insertUnorderedList" title="Bulleted list">
-                                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
-                                            </button>
-                                            <button type="button" data-format="insertOrderedList" title="Numbered list">1.</button>
-                                            <button type="button" data-format="formatBlock" data-value="blockquote" title="Quote">“</button>
-                                            <button type="button" data-add-link title="Add link">
-                                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.5.5l2-2a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7.5-.5l-2 2a5 5 0 0 0 7 7l1-1"/></svg>
-                                            </button>
-                                            <button type="button" data-inline-image title="Insert image" aria-label="Insert image">
-                                                <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9" r="1.5"/><path d="m21 15-5-5L5 20"/></svg>
-                                            </button>
-                                            <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple data-inline-image-input hidden>
-                                            <button type="button" data-add-youtube title="Embed YouTube video" aria-label="Embed YouTube video">
-                                                <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="4"/><path d="m10 9 5 3-5 3Z"/></svg>
-                                            </button>
-                                            <button type="button" data-format="removeFormat" title="Clear formatting">
-                                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 7 10 10M5 5h14M12 5l-4 14M17 17h4"/></svg>
-                                            </button>
+                                            <div class="blog-format-group" role="group" aria-label="History controls">
+                                                <button type="button" data-undo title="Undo (Ctrl+Z)" aria-label="Undo" disabled>
+                                                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 7-5 5 5 5"/><path d="M20 17a7 7 0 0 0-7-7H4"/></svg>
+                                                </button>
+                                                <button type="button" data-redo title="Redo (Ctrl+Shift+Z)" aria-label="Redo" disabled>
+                                                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 7 5 5-5 5"/><path d="M4 17a7 7 0 0 1 7-7h9"/></svg>
+                                                </button>
+                                            </div>
+                                            <div class="blog-format-group" role="group" aria-label="Text style">
+                                                <button type="button" data-format="formatBlock" data-value="p" title="Paragraph">P</button>
+                                                <button type="button" data-format="formatBlock" data-value="h2" title="Heading 2">H2</button>
+                                                <button type="button" data-format="formatBlock" data-value="h3" title="Heading 3">H3</button>
+                                            </div>
+                                            <div class="blog-format-group" role="group" aria-label="Text formatting">
+                                                <button type="button" data-format="bold" title="Bold"><strong>B</strong></button>
+                                                <button type="button" data-format="italic" title="Italic"><em>I</em></button>
+                                                <button type="button" data-format="insertUnorderedList" title="Bulleted list">
+                                                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
+                                                </button>
+                                                <button type="button" data-format="insertOrderedList" title="Numbered list">1.</button>
+                                                <button type="button" data-format="formatBlock" data-value="blockquote" title="Quote">“</button>
+                                            </div>
+                                            <div class="blog-format-group" role="group" aria-label="Links and media">
+                                                <button type="button" data-add-link title="Add link">
+                                                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.5.5l2-2a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7.5-.5l-2 2a5 5 0 0 0 7 7l1-1"/></svg>
+                                                </button>
+                                                <button type="button" data-inline-image title="Insert image" aria-label="Insert image">
+                                                    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9" r="1.5"/><path d="m21 15-5-5L5 20"/></svg>
+                                                </button>
+                                                <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple data-inline-image-input hidden>
+                                                <button type="button" data-add-youtube title="Embed YouTube video" aria-label="Embed YouTube video">
+                                                    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="4"/><path d="m10 9 5 3-5 3Z"/></svg>
+                                                </button>
+                                                <button type="button" data-format="removeFormat" title="Clear formatting">
+                                                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 7 10 10M5 5h14M12 5l-4 14M17 17h4"/></svg>
+                                                </button>
+                                            </div>
                                         </div>
                                         <section class="blog-image-layout" data-image-layout hidden contenteditable="false" aria-label="Selected image layout">
                                             <div class="blog-image-layout-head">
