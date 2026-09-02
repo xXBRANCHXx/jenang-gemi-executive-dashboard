@@ -553,7 +553,7 @@
 .blog-body-editor.is-image-dragover { border-radius: 14px; outline: 2px dashed var(--admin-accent-primary); outline-offset: -8px; background: color-mix(in srgb, var(--admin-accent-primary) 5%, transparent); }
 
 .blog-body-editor figure[data-youtube-id],
-.blog-preview-body figure[data-youtube-id] { clear: both; width: 100% !important; float: none !important; margin: 2em auto !important; }
+.blog-preview-body figure[data-youtube-id] { container: youtube-card / inline-size; width: var(--youtube-width, 100%) !important; max-width: 100%; float: none !important; margin: .65em auto 1em !important; transition: width .08s linear; }
 .blog-body-editor [data-youtube-trigger],
 .blog-preview-body [data-youtube-trigger] { display: block; color: inherit; text-decoration: none; }
 .blog-body-editor [data-youtube-thumbnail],
@@ -576,7 +576,21 @@
 .blog-preview-body [data-youtube-link] { color: #346d86; font-size: 10px; font-weight: 800; text-decoration: none; }
 .blog-body-editor [data-youtube-link]:hover,
 .blog-preview-body [data-youtube-link]:hover { text-decoration: underline; }
-.blog-youtube-remove { position: absolute; z-index: 4; top: 10px; right: 10px; min-height: 30px; padding: 0 11px; border: 1px solid rgba(255, 255, 255, .3); border-radius: 99px; background: rgba(12, 18, 13, .82); color: #fff; cursor: pointer; font: 800 9px/1 "Plus Jakarta Sans", sans-serif; backdrop-filter: blur(10px); }
+.blog-youtube-remove { position: absolute; z-index: 4; top: 8px; right: 8px; display: grid; width: 30px; height: 30px; place-items: center; padding: 0; border: 1px solid rgba(255, 255, 255, .32); border-radius: 50%; background: rgba(12, 18, 13, .82); color: #fff; cursor: pointer; font: 500 18px/1 Arial, sans-serif; backdrop-filter: blur(10px); }
+.blog-youtube-size { position: absolute; z-index: 4; top: 9px; left: 9px; padding: 6px 8px; border-radius: 99px; background: rgba(12, 18, 13, .8); color: #fff; font: 800 8px/1 "Plus Jakarta Sans", sans-serif; pointer-events: none; backdrop-filter: blur(10px); }
+.blog-youtube-resize { position: absolute; z-index: 5; right: -7px; bottom: 24px; width: 25px; height: 25px; border: 2px solid #fff; border-radius: 7px; background: #527514; box-shadow: 0 4px 12px rgba(0, 0, 0, .28); cursor: nwse-resize; touch-action: none; }
+.blog-youtube-resize::after { position: absolute; right: 5px; bottom: 5px; width: 7px; height: 7px; border-right: 2px solid #fff; border-bottom: 2px solid #fff; content: ''; }
+.blog-body-editor figure[data-youtube-id].is-resizing [data-youtube-thumbnail] { outline: 2px solid #79ae1d; outline-offset: 4px; }
+body.is-resizing-blog-youtube { cursor: nwse-resize; user-select: none; }
+
+@container youtube-card (max-width: 240px) {
+  .blog-body-editor [data-youtube-label],
+  .blog-preview-body [data-youtube-label],
+  .blog-body-editor figure[data-youtube-id] figcaption,
+  .blog-preview-body figure[data-youtube-id] figcaption,
+  .blog-youtube-size { display: none; }
+  .blog-youtube-resize { right: -7px; bottom: -7px; }
+}
 
 .blog-writing-footer { clear: both; display: flex; flex-wrap: wrap; gap: 8px 16px; padding-top: 14px; border-top: 1px solid var(--admin-border); color: var(--admin-muted); font-size: 9px; }
 .blog-writing-footer strong { color: var(--admin-text); }

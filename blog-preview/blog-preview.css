@@ -77,7 +77,7 @@ body { min-height: 100vh; margin: 0; background: var(--paper); color: var(--ink)
 .preview-body figure[data-shape="square"] img { aspect-ratio: 1; object-fit: cover; }
 .preview-body figure[data-shape="portrait"] img { aspect-ratio: 4 / 5; object-fit: cover; }
 .preview-body figcaption { padding: 10px 8px 0; color: var(--muted); font-size: 11px; line-height: 1.5; text-align: center; }
-.preview-body figure[data-youtube-id] { clear: both; width: 100% !important; float: none !important; margin: 2.3em auto !important; }
+.preview-body figure[data-youtube-id] { container: youtube-card / inline-size; width: var(--youtube-width, 100%) !important; max-width: 100%; float: none !important; margin: .75em auto 1.15em !important; }
 .preview-body [data-youtube-trigger] { display: block; color: inherit; text-decoration: none; }
 .preview-body [data-youtube-thumbnail] { position: relative; aspect-ratio: 16 / 9; overflow: hidden; border-radius: 18px; background: #111; box-shadow: 0 18px 44px rgba(15, 23, 42, .18); cursor: pointer; }
 .preview-body [data-youtube-thumbnail]::after { position: absolute; inset: 45% 0 0; background: linear-gradient(transparent, rgba(0, 0, 0, .78)); content: ''; pointer-events: none; }
@@ -89,6 +89,10 @@ body { min-height: 100vh; margin: 0; background: var(--paper); color: var(--ink)
 .preview-body [data-youtube-platform] { color: var(--muted); font-size: 10px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
 .preview-body [data-youtube-link] { color: #28657f; font-size: 10px; font-weight: 800; text-decoration: none; }
 .preview-body [data-youtube-link]:hover { text-decoration: underline; }
+@container youtube-card (max-width: 240px) {
+  .preview-body [data-youtube-label],
+  .preview-body figure[data-youtube-id] figcaption { display: none; }
+}
 .preview-empty { padding: 32px; border: 1px dashed var(--line); border-radius: 16px; background: var(--paper-soft); color: var(--muted); text-align: center; }
 
 .preview-footer { display: flex; justify-content: center; gap: 8px 16px; padding: 28px 20px; border-top: 1px solid var(--line); color: var(--muted); font-size: 10px; text-align: center; }

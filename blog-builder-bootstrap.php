@@ -346,6 +346,7 @@ function jg_blog_sanitize_html(mixed $html): string
                 $originalCropBottom = $tag === 'figure' ? $node->getAttribute('data-crop-bottom') : '';
                 $originalCropLeft = $tag === 'figure' ? $node->getAttribute('data-crop-left') : '';
                 $originalYoutubeId = $tag === 'figure' ? $node->getAttribute('data-youtube-id') : '';
+                $originalYoutubeWidth = $tag === 'figure' ? $node->getAttribute('data-youtube-width') : '';
                 $isImageFrame = $tag === 'div' && $node->hasAttribute('data-image-frame');
                 $isYoutubeThumbnail = $tag === 'div' && $node->hasAttribute('data-youtube-thumbnail');
                 $isYoutubeTrigger = $tag === 'a' && $node->hasAttribute('data-youtube-trigger');
@@ -405,7 +406,10 @@ function jg_blog_sanitize_html(mixed $html): string
                 if ($tag === 'figure') {
                     $youtubeId = jg_blog_youtube_id($originalYoutubeId);
                     if ($youtubeId !== '') {
+                        $youtubeWidth = max(10, min(100, (int) $originalYoutubeWidth ?: 100));
                         $node->setAttribute('data-youtube-id', $youtubeId);
+                        $node->setAttribute('data-youtube-width', (string) $youtubeWidth);
+                        $node->setAttribute('style', '--youtube-width:' . $youtubeWidth . '%');
                         $node = $next;
                         continue;
                     }
