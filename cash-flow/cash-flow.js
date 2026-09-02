@@ -30,6 +30,7 @@ if (root) {
       cost: root.querySelector('[data-cash-flow-count="cost"]')
     },
     chart: root.querySelector('[data-cash-flow-chart]'),
+    chartAxis: root.querySelector('[data-cash-flow-chart-axis]'),
     sources: root.querySelector('[data-cash-flow-sources]'),
     categories: root.querySelector('[data-cash-flow-categories]'),
     filter: root.querySelector('[data-cash-flow-filter]'),
@@ -40,6 +41,7 @@ if (root) {
   };
   const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' })[character]);
   const money = (value) => `Rp${Math.round(Number(value) || 0).toLocaleString('id-ID')}`;
+  const compactMoney = (value) => `Rp${new Intl.NumberFormat('id-ID', { notation: 'compact', maximumFractionDigits: 1 }).format(Number(value) || 0)}`;
   const periodKey = () => `${state.year}-${String(state.month).padStart(2, '0')}`;
   const readableDate = (value) => {
     const [year, month, day] = String(value || '').split('-').map(Number);
@@ -67,10 +69,12 @@ if (root) {
     const daily = Array.isArray(state.report?.daily) ? state.report.daily : [];
     refs.chart.style.gridTemplateColumns = `repeat(${Math.max(1, daily.length)}, minmax(7px, 1fr))`;
     if (!daily.length) {
+      if (refs.chartAxis) refs.chartAxis.innerHTML = '';
       refs.chart.innerHTML = '<p class="admin-empty">No confirmed payments for this month.</p>';
       return;
     }
     const max = Math.max(...daily.flatMap((day) => [Number(day.income || 0), Number(day.cost || 0)]), 1);
+    if (refs.chartAxis) refs.chartAxis.innerHTML = `<span>${escapeHtml(compactMoney(max))}</span><span>${escapeHtml(compactMoney(max / 2))}</span><span>Rp0</span>`;
     refs.chart.innerHTML = daily.map((day) => {
       const incomeHeight = Number(day.income || 0) ? Math.max(4, (Number(day.income) / max) * 100) : 0;
       const costHeight = Number(day.cost || 0) ? Math.max(4, (Number(day.cost) / max) * 100) : 0;
@@ -126,14 +130,14 @@ if (root) {
         }
       }
       return `<tr>
-        <td><time datetime="${escapeHtml(row.date)}">${escapeHtml(readableDate(row.date))}</time></td>
-        <td><span class="cash-flow-chip is-${escapeHtml(row.flow)}">${row.flow === 'income' ? 'Money in' : 'Money out'}</span></td>
-        <td><strong>${escapeHtml(row.transaction || 'Cash movement')}</strong><small>${escapeHtml(row.counterparty || '')}</small></td>
-        <td>${escapeHtml(row.category || 'Uncategorized')}</td>
-        <td>${escapeHtml(source || '—')}</td>
-        <td>${escapeHtml(row.reference || '—')}${receipt}</td>
-        <td>${escapeHtml(notes || '—')}</td>
-        <td class="is-numeric is-${escapeHtml(row.flow)}"><strong>${row.flow === 'cost' ? '−' : '+'}${money(row.amount)}</strong></td>
+        <td data-label="Date"><time datetime="${escapeHtml(row.date)}">${escapeHtml(readableDate(row.date))}</time></td>
+        <td data-label="Flow"><span class="cash-flow-chip is-${escapeHtml(row.flow)}">${row.flow === 'income' ? 'Money in' : 'Money out'}</span></td>
+        <td data-label="Transaction"><strong>${escapeHtml(row.transaction || 'Cash movement')}</strong><small>${escapeHtml(row.counterparty || '')}</small></td>
+        <td data-label="Category">${escapeHtml(row.category || 'Uncategorized')}</td>
+        <td data-label="Source / account">${escapeHtml(source || '—')}</td>
+        <td data-label="Reference">${escapeHtml(row.reference || '—')}${receipt}</td>
+        <td data-label="Notes">${escapeHtml(notes || '—')}</td>
+        <td data-label="Amount" class="is-numeric is-${escapeHtml(row.flow)}"><strong>${row.flow === 'cost' ? '−' : '+'}${money(row.amount)}</strong></td>
       </tr>`;
     }).join('');
   };
@@ -144,8 +148,9 @@ if (root) {
     refs.period.textContent = `${monthNames[state.month - 1]} ${state.year}`;
     refs.totals.income.textContent = money(totals.income);
     refs.totals.cost.textContent = money(totals.cost);
-    refs.totals.net.textContent = money(totals.net_cash_flow);
-    refs.totals.net.closest('article')?.classList.toggle('is-negative', Number(totals.net_cash_flow || 0) < 0);
+    const net = Number(totals.net_cash_flow || 0);
+    refs.totals.net.textContent = `${net < 0 ? '−' : '+'}${money(Math.abs(net))}`;
+    refs.totals.net.closest('.cash-flow-kpi')?.classList.toggle('is-negative', net < 0);
     refs.counts.income.textContent = `${Number(totals.income_count || 0).toLocaleString('id-ID')} received transactions`;
     refs.counts.cost.textContent = `${Number(totals.cost_count || 0).toLocaleString('id-ID')} paid transactions`;
     renderChart();
@@ -180,7 +185,7 @@ if (root) {
       refs.transactions.innerHTML = `<tr><td colspan="8" class="admin-empty">${escapeHtml(message)}</td></tr>`;
     } finally {
       refs.refresh.disabled = false;
-      refs.refresh.textContent = 'Refresh';
+      refs.refresh.innerHTML = '<span aria-hidden="true">↻</span> Refresh';
     }
   };
 

@@ -41,47 +41,50 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/cash-flow.js');
             </header>
 
             <main class="cash-flow-page">
-                <section class="cash-flow-command">
+                <section class="cash-flow-toolbar" aria-label="Cash flow period">
                     <div>
                         <span class="admin-panel-kicker">Actual cash basis</span>
                         <h2 data-cash-flow-period>Selected month</h2>
                         <p data-cash-flow-status>Loading confirmed payments…</p>
                     </div>
-                    <div class="cash-flow-period-controls" aria-label="Cash flow period">
+                    <div class="cash-flow-period-controls">
                         <label><span>Month</span><select data-cash-flow-month></select></label>
                         <label><span>Year</span><select data-cash-flow-year></select></label>
-                        <button type="button" data-cash-flow-refresh aria-label="Refresh cash flow">Refresh</button>
+                        <button type="button" data-cash-flow-refresh aria-label="Refresh cash flow"><span aria-hidden="true">↻</span> Refresh</button>
                     </div>
                 </section>
 
                 <section class="cash-flow-kpis" aria-label="Cash flow totals">
-                    <article class="is-income"><span>Income received</span><strong data-cash-flow-total="income">Rp0</strong><small data-cash-flow-count="income">0 received transactions</small></article>
-                    <article class="is-cost"><span>Costs paid</span><strong data-cash-flow-total="cost">Rp0</strong><small data-cash-flow-count="cost">0 paid transactions</small></article>
-                    <article class="is-net"><span>Net cash flow</span><strong data-cash-flow-total="net">Rp0</strong><small>Income minus cost</small></article>
+                    <div class="cash-flow-kpi is-net"><span>Net cash flow</span><strong data-cash-flow-total="net">Rp0</strong><small>Income received − costs paid</small></div>
+                    <div class="cash-flow-kpi is-income"><span>Income received</span><strong data-cash-flow-total="income">Rp0</strong><small data-cash-flow-count="income">0 received transactions</small></div>
+                    <div class="cash-flow-kpi is-cost"><span>Costs paid</span><strong data-cash-flow-total="cost">Rp0</strong><small data-cash-flow-count="cost">0 paid transactions</small></div>
                 </section>
 
-                <section class="cash-flow-panel cash-flow-chart-panel" aria-labelledby="cash-flow-chart-title">
+                <section class="cash-flow-section cash-flow-chart-section" aria-labelledby="cash-flow-chart-title">
                     <header>
-                        <div><span class="admin-panel-kicker">Daily movement</span><h2 id="cash-flow-chart-title">Income and cost by payment date</h2></div>
+                        <div><span class="admin-panel-kicker">Daily movement</span><h2 id="cash-flow-chart-title">Income and cost by payment date</h2><p>Only days when money actually moved are plotted.</p></div>
                         <div class="cash-flow-legend"><span class="is-income">Income</span><span class="is-cost">Cost</span></div>
                     </header>
-                    <div class="cash-flow-chart" data-cash-flow-chart role="img" aria-label="Daily income and paid cost chart">
-                        <p class="admin-empty">Loading chart…</p>
+                    <div class="cash-flow-chart-stage">
+                        <div class="cash-flow-chart-axis" data-cash-flow-chart-axis aria-hidden="true"></div>
+                        <div class="cash-flow-chart" data-cash-flow-chart role="img" aria-label="Daily income and paid cost chart">
+                            <p class="admin-empty">Loading chart…</p>
+                        </div>
                     </div>
                 </section>
 
-                <section class="cash-flow-breakdowns" aria-label="Cash flow breakdowns">
-                    <article class="cash-flow-panel">
-                        <header><div><span class="admin-panel-kicker">Where it came from</span><h2>Sources</h2></div></header>
+                <section class="cash-flow-breakdowns cash-flow-section" aria-label="Cash flow breakdowns">
+                    <article class="cash-flow-breakdown">
+                        <header><div><span class="admin-panel-kicker">Where cash moved</span><h2>Sources</h2><p>Automatic feeds and recorded payments.</p></div></header>
                         <div class="cash-flow-summary-list" data-cash-flow-sources><p class="admin-empty">Loading sources…</p></div>
                     </article>
-                    <article class="cash-flow-panel">
-                        <header><div><span class="admin-panel-kicker">How it was classified</span><h2>Categories</h2></div></header>
+                    <article class="cash-flow-breakdown">
+                        <header><div><span class="admin-panel-kicker">How cash was classified</span><h2>Categories</h2><p>The accounting category on each movement.</p></div></header>
                         <div class="cash-flow-summary-list" data-cash-flow-categories><p class="admin-empty">Loading categories…</p></div>
                     </article>
                 </section>
 
-                <section class="cash-flow-panel cash-flow-ledger" aria-labelledby="cash-flow-ledger-title">
+                <section class="cash-flow-section cash-flow-ledger" aria-labelledby="cash-flow-ledger-title">
                     <header class="cash-flow-ledger-head">
                         <div><span class="admin-panel-kicker">Full breakdown</span><h2 id="cash-flow-ledger-title">Every confirmed cash movement</h2><p data-cash-flow-ledger-count>0 transactions</p></div>
                         <div class="cash-flow-ledger-filters">
@@ -97,7 +100,7 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/cash-flow.js');
                     </div>
                 </section>
 
-                <details class="cash-flow-methodology cash-flow-panel">
+                <details class="cash-flow-methodology cash-flow-section">
                     <summary>What is included in this report?</summary>
                     <div data-cash-flow-methodology></div>
                 </details>
