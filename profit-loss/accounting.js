@@ -121,6 +121,7 @@ if (root) {
     transactions: [],
     ledger: [],
     reviewQueue: [],
+    cashFlow: null,
     accounts: [],
     categories: [],
     categorySettingsFlow: 'expense',
@@ -267,6 +268,13 @@ if (root) {
     ledgerMeta: root.querySelector('[data-accounting-ledger-meta]'),
     reviewCount: root.querySelector('[data-accounting-review-count]'),
     monthlySummary: root.querySelector('[data-accounting-monthly-summary]'),
+    cashFlowLink: root.querySelector('[data-accounting-cash-flow-link]'),
+    cashFlowNet: root.querySelector('[data-accounting-cash-flow-net]'),
+    cashFlowIncome: root.querySelector('[data-accounting-cash-flow-income]'),
+    cashFlowCost: root.querySelector('[data-accounting-cash-flow-cost]'),
+    cashFlowIncomeBar: root.querySelector('[data-accounting-cash-flow-income-bar]'),
+    cashFlowCostBar: root.querySelector('[data-accounting-cash-flow-cost-bar]'),
+    cashFlowCount: root.querySelector('[data-accounting-cash-flow-count]'),
     insightTabs: root.querySelectorAll('[data-accounting-insight-tab]'),
     insights: root.querySelector('[data-accounting-insights]'),
     drawer: root.querySelector('[data-accounting-drawer]'),
@@ -405,6 +413,7 @@ if (root) {
     state.transactions = Array.isArray(payload?.transactions) ? payload.transactions : [];
     state.ledger = Array.isArray(payload?.ledger) ? payload.ledger : [];
     state.reviewQueue = Array.isArray(payload?.reviewQueue) ? payload.reviewQueue : [];
+    state.cashFlow = payload?.cashFlow || null;
     applyLookupsPayload(payload?.lookups, { renderControls: false });
     render(renderOptions);
   };
@@ -2482,6 +2491,30 @@ if (root) {
     `).join('');
   };
 
+  const renderCashFlowPreview = () => {
+    if (!refs.cashFlowLink) return;
+    if (!state.cashFlow) {
+      refs.cashFlowLink.href = `../cash-flow/?month=${encodeURIComponent(state.month)}`;
+      if (refs.cashFlowCount) refs.cashFlowCount.textContent = 'Cash flow breakdown unavailable · open to retry';
+      return;
+    }
+    const totals = state.cashFlow?.totals || {};
+    const income = Number(totals.income || 0);
+    const cost = Number(totals.cost || 0);
+    const net = Number(totals.net_cash_flow || 0);
+    const max = Math.max(income, cost, 1);
+    refs.cashFlowLink.href = `../cash-flow/?month=${encodeURIComponent(state.month)}`;
+    if (refs.cashFlowNet) {
+      refs.cashFlowNet.textContent = `${net < 0 ? '−' : '+'}${formatCurrency(Math.abs(net))}`;
+      refs.cashFlowNet.classList.toggle('is-negative', net < 0);
+    }
+    if (refs.cashFlowIncome) refs.cashFlowIncome.textContent = formatCurrency(income);
+    if (refs.cashFlowCost) refs.cashFlowCost.textContent = formatCurrency(cost);
+    if (refs.cashFlowIncomeBar) refs.cashFlowIncomeBar.style.width = `${income ? Math.max(3, (income / max) * 100) : 0}%`;
+    if (refs.cashFlowCostBar) refs.cashFlowCostBar.style.width = `${cost ? Math.max(3, (cost / max) * 100) : 0}%`;
+    if (refs.cashFlowCount) refs.cashFlowCount.textContent = `${Number(totals.transaction_count || 0).toLocaleString('id-ID')} confirmed movements · scheduled items excluded`;
+  };
+
   const renderInsights = (summary) => {
     if (!refs.insights) return;
     const key = `${state.insightTab}_summary`;
@@ -2633,6 +2666,7 @@ if (root) {
     renderTransactions();
     renderLedger();
     renderSummary(state.summary);
+    renderCashFlowPreview();
     renderInsights(state.summary);
     renderReviewQueue();
     renderLookups();
@@ -2707,12 +2741,13 @@ if (root) {
     if (refs.status) refs.status.textContent = renderedCache ? 'Refreshing accounting data' : 'Loading accounting data';
     const billOptions = { month: options.month, status: 'open', limit: '200' };
     try {
-      const [summary, bills, transactions, ledger, review] = await Promise.all([
+      const [summary, bills, transactions, ledger, review, cashFlow] = await Promise.all([
         requestJson(buildUrl('summary', { ...options, cacheBust: force })),
         requestJson(buildUrl('bills', { ...billOptions, cacheBust: force })),
         requestJson(buildUrl('transactions', { ...options, cacheBust: force })),
         requestJson(buildUrl('activity_ledger', { ...options, cacheBust: force })),
         requestJson(buildUrl('review_queue', { ...options, cacheBust: force })),
+        requestJson(buildUrl('cash_flow', { month: options.month, cacheBust: force })).catch(() => ({ data: { cash_flow: null } })),
         loadLookups(force)
       ]);
       const payload = {
@@ -2721,6 +2756,7 @@ if (root) {
         transactions: Array.isArray(transactions.data?.transactions) ? transactions.data.transactions : [],
         ledger: Array.isArray(ledger.data?.ledger) ? ledger.data.ledger : [],
         reviewQueue: Array.isArray(review.data?.review_queue) ? review.data.review_queue : [],
+        cashFlow: cashFlow.data?.cash_flow || null,
         lookups: getLookupPayload()
       };
       applyAccountingPayload(payload);

@@ -152,6 +152,12 @@ function admin_quick_menu_definitions(): array
             'label' => 'Accounting',
             'description' => 'Cash, bills, expenses, and manual finance control',
         ],
+        'cash-flow' => [
+            'href' => '../cash-flow/',
+            'icon' => 'accounting',
+            'label' => 'Cash Flow',
+            'description' => 'Actual income received minus costs paid',
+        ],
         'profit-loss' => [
             'href' => '../profit-and-loss/',
             'icon' => 'profit-loss',
@@ -222,7 +228,8 @@ function admin_quick_menu_context_map(): array
         'affiliates' => ['home', 'affiliate-profiles', 'campaigns', 'daily', 'orders', 'settings'],
         'affiliate-profiles' => ['home', 'affiliates', 'campaigns', 'daily', 'orders', 'settings'],
         'hard-set' => ['home', 'settings'],
-        'accounting' => ['home', 'profit-loss', 'orders', 'context', 'settings'],
+        'accounting' => ['cash-flow', 'home', 'profit-loss', 'orders', 'context', 'settings'],
+        'cash-flow' => ['accounting', 'profit-loss', 'home', 'orders', 'context', 'settings'],
         'profit-loss' => ['home', 'accounting', 'orders', 'campaigns', 'context', 'settings'],
         'website' => ['blog-builder', 'home', 'daily', 'orders', 'campaigns', 'affiliates', 'settings'],
         'blog-builder' => ['home', 'campaigns', 'affiliates', 'website', 'settings'],
@@ -259,6 +266,8 @@ function admin_normalize_quick_menu_context(string $context): string
         'api-health' => 'api',
         'accounting' => 'accounting',
         'cash-control' => 'accounting',
+        'cash-flow' => 'cash-flow',
+        'cash_flow' => 'cash-flow',
         'p&l' => 'profit-loss',
         'profit-and-loss' => 'profit-loss',
         'inventory' => 'inventory-recap',
@@ -369,6 +378,9 @@ function admin_current_menu_context(): string
     }
     if (str_contains($path, '/profit-and-loss/')) {
         return 'profit-loss';
+    }
+    if (str_contains($path, '/cash-flow/')) {
+        return 'cash-flow';
     }
     if (str_contains($path, '/profit-loss/')) {
         return 'accounting';
@@ -505,6 +517,8 @@ function admin_normalize_favicon_key(string $key): string
         'product-explorer' => 'product-breakdowns',
         'accounting' => 'accounting',
         'cash-control' => 'accounting',
+        'cash-flow' => 'accounting',
+        'cash_flow' => 'accounting',
         'p&l' => 'profit-loss',
         'profit-and-loss' => 'profit-loss',
         'customers' => 'affiliates',

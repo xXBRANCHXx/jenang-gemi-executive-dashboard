@@ -272,6 +272,11 @@ try {
                 'cash_context' => jg_accounting_automatic_usable_cash_context($pdo, $cashFilters),
             ], $month));
         }
+        if ($action === 'cash_flow') {
+            jg_accounting_json(jg_accounting_endpoint_payload([
+                'cash_flow' => jg_accounting_cash_flow_report($pdo, $month),
+            ], $month));
+        }
         if ($action === 'cash_history') {
             jg_accounting_json(jg_accounting_endpoint_payload(jg_accounting_cash_history($pdo), $month));
         }

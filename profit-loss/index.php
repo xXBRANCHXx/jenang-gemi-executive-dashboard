@@ -645,6 +645,22 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/accounting.js');
                     </section>
                 </div>
 
+                <a class="admin-cash-flow-preview" href="../cash-flow/" data-accounting-cash-flow-link aria-labelledby="accounting-cash-flow-title">
+                    <div class="admin-cash-flow-preview-head">
+                        <div>
+                            <span class="admin-panel-kicker">Actual cash basis</span>
+                            <h2 id="accounting-cash-flow-title">Cash flow</h2>
+                            <p>Income received minus every cost actually paid for the selected month.</p>
+                        </div>
+                        <strong data-accounting-cash-flow-net>Rp0</strong>
+                    </div>
+                    <div class="admin-cash-flow-preview-chart" aria-label="Cash flow summary">
+                        <div class="is-income"><span>Income received</span><i><b data-accounting-cash-flow-income-bar></b></i><strong data-accounting-cash-flow-income>Rp0</strong></div>
+                        <div class="is-cost"><span>Costs paid</span><i><b data-accounting-cash-flow-cost-bar></b></i><strong data-accounting-cash-flow-cost>Rp0</strong></div>
+                    </div>
+                    <div class="admin-cash-flow-preview-foot"><span data-accounting-cash-flow-count>Loading confirmed movements…</span><b>Open full breakdown →</b></div>
+                </a>
+
                 <section class="admin-accounting-wallet-destination" aria-labelledby="accounting-wallet-destination-title">
                     <div class="admin-accounting-wallet-destination-copy">
                         <span class="admin-accounting-wallet-destination-icon" aria-hidden="true">
