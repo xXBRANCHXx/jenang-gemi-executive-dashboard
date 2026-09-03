@@ -19,6 +19,10 @@ expect(
   'Transfer mode must identify its only category by account code 11102.'
 );
 expect(
+  script.includes("String(category.category_key || '').trim() === 'operating-cash'"),
+  'Transfer mode must fall back to the stable Operating Cash system key.'
+);
+expect(
   script.includes('internalTransferCategories = () => state.categories.filter'),
   'The internal-transfer category must remain available even when it is not an expense/bill category.'
 );

@@ -1051,7 +1051,9 @@ if (root) {
 
   const internalTransferCategories = () => state.categories.filter((category) => category.parent_id !== null);
 
-  const internalTransferCategory = () => internalTransferCategories().find((category) => (
+  const internalTransferCategory = () => state.categories.find((category) => (
+    String(category.category_key || '').trim() === 'operating-cash'
+  )) || internalTransferCategories().find((category) => (
     String(category.account_code || '').trim() === '11102'
   )) || internalTransferCategories().find((category) => {
     const name = String(category.name || '').trim().toLocaleLowerCase('id-ID');

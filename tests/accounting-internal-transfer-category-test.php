@@ -14,7 +14,7 @@ function internal_transfer_category_expect(mixed $expected, mixed $actual, strin
 $pdo = new PDO('sqlite::memory:');
 $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 $pdo->exec('CREATE TABLE accounting_categories (
-    id INTEGER PRIMARY KEY, parent_id INTEGER NULL, name TEXT NOT NULL
+    id INTEGER PRIMARY KEY, category_key TEXT NULL, parent_id INTEGER NULL, name TEXT NOT NULL
 )');
 $pdo->exec('CREATE TABLE accounting_category_guidance (
     category_id INTEGER PRIMARY KEY, account_code TEXT NOT NULL
@@ -23,11 +23,11 @@ $pdo->exec('CREATE TABLE accounting_transactions (
     id INTEGER PRIMARY KEY, type TEXT NOT NULL, direction TEXT NOT NULL, status TEXT NOT NULL, category_id INTEGER NULL
 )');
 
-$pdo->exec("INSERT INTO accounting_categories (id, parent_id, name) VALUES
-    (1, NULL, 'Wrong group'),
-    (2, 1, 'Wrong category'),
-    (10, NULL, 'Kas, Bank & Settlement (Cash, Bank & Settlement)'),
-    (11, 10, 'Kas Operasional (Operating Cash)')");
+$pdo->exec("INSERT INTO accounting_categories (id, category_key, parent_id, name) VALUES
+    (1, 'wrong-group', NULL, 'Wrong group'),
+    (2, 'wrong-category', 1, 'Wrong category'),
+    (10, 'cash-bank-settlement', NULL, 'Kas, Bank & Settlement (Cash, Bank & Settlement)'),
+    (11, 'operating-cash', 10, 'Kas Operasional (Operating Cash)')");
 $pdo->exec("INSERT INTO accounting_category_guidance (category_id, account_code) VALUES
     (2, '99999'),
     (11, '11102')");
@@ -47,5 +47,12 @@ internal_transfer_category_expect([11, 11, 2, 2], array_map('intval', $categorie
 
 $pdo->exec('DELETE FROM accounting_category_guidance');
 internal_transfer_category_expect(11, jg_accounting_internal_transfer_category_id($pdo), 'The bilingual category hierarchy must remain a safe fallback when guidance is unavailable.');
+
+$pdo->exec("UPDATE accounting_categories SET name = 'Renamed system category', parent_id = NULL WHERE id = 11");
+internal_transfer_category_expect(11, jg_accounting_internal_transfer_category_id($pdo), 'The stable system category key must survive display-name and hierarchy changes.');
+
+$source = file_get_contents(__DIR__ . '/../accounting-bootstrap.php');
+internal_transfer_category_expect(true, str_contains($source, "['cash-bank-settlement', 'Kas, Bank & Settlement (Cash, Bank & Settlement)', 'asset']"), 'The cash and bank category group must be seeded.');
+internal_transfer_category_expect(true, str_contains($source, "['cash-bank-settlement', 'operating-cash', 'Kas Operasional (Operating Cash) - 11102', 'asset', 0]"), 'Operating Cash 11102 must be seeded as a non-billable child category.');
 
 echo "Accounting internal transfer category tests passed.\n";

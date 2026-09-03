@@ -1037,6 +1037,7 @@ function jg_accounting_seed_categories(PDO $pdo): void
         ['owner-capital', 'Owner/Capital', 'owner'],
         ['tax-legal', 'Tax/Legal', 'tax'],
         ['other', 'Other', 'other'],
+        ['cash-bank-settlement', 'Kas, Bank & Settlement (Cash, Bank & Settlement)', 'asset'],
     ];
 
     $insert = $pdo->prepare(
@@ -1057,7 +1058,7 @@ function jg_accounting_seed_categories(PDO $pdo): void
             ':type' => $type,
             ':flow' => 'expense',
             ':requires_receipt' => 0,
-            ':is_billable' => 1,
+            ':is_billable' => $key === 'cash-bank-settlement' ? 0 : 1,
             ':sort_order' => ($index + 1) * 100,
         ]);
         $stmt = $pdo->prepare('SELECT id FROM accounting_categories WHERE category_key = :category_key LIMIT 1');
@@ -1109,6 +1110,7 @@ function jg_accounting_seed_categories(PDO $pdo): void
         ['other', 'reimbursement', 'Reimbursement', 'income', 0],
         ['other', 'miscellaneous', 'Miscellaneous', 'other', 1],
         ['other', 'correction-adjustment', 'Correction / Adjustment', 'adjustment', 0],
+        ['cash-bank-settlement', 'operating-cash', 'Kas Operasional (Operating Cash) - 11102', 'asset', 0],
     ];
 
     foreach ($children as $index => [$parentKey, $key, $name, $type, $requiresReceipt]) {
@@ -1119,7 +1121,7 @@ function jg_accounting_seed_categories(PDO $pdo): void
             ':type' => $type,
             ':flow' => in_array($key, ['owner-injection', 'loan-received', 'reimbursement'], true) || $type === 'income' ? 'income' : 'expense',
             ':requires_receipt' => $requiresReceipt,
-            ':is_billable' => 1,
+            ':is_billable' => $key === 'operating-cash' ? 0 : 1,
             ':sort_order' => ($index + 1) * 10,
         ]);
     }
@@ -1395,9 +1397,10 @@ function jg_accounting_internal_transfer_category_id(PDO $pdo): ?int
         $stmt = $pdo->query(
             'SELECT c.id
              FROM accounting_categories c
-             INNER JOIN accounting_categories p ON p.id = c.parent_id
-             WHERE (LOWER(TRIM(c.name)) LIKE "kas operasional%" OR LOWER(TRIM(c.name)) LIKE "operating cash%")
-               AND (LOWER(TRIM(p.name)) LIKE "kas, bank & settlement%" OR LOWER(TRIM(p.name)) LIKE "cash, bank & settlement%")
+             LEFT JOIN accounting_categories p ON p.id = c.parent_id
+             WHERE c.category_key = "operating-cash"
+                OR ((LOWER(TRIM(c.name)) LIKE "kas operasional%" OR LOWER(TRIM(c.name)) LIKE "operating cash%")
+                    AND (LOWER(TRIM(p.name)) LIKE "kas, bank & settlement%" OR LOWER(TRIM(p.name)) LIKE "cash, bank & settlement%"))
              ORDER BY c.id ASC
              LIMIT 1'
         );
