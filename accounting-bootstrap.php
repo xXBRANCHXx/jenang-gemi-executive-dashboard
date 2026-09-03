@@ -4963,10 +4963,12 @@ function jg_accounting_transactions(PDO $pdo, array $filters): array
         $where[] = 't.receipt_status = "missing"';
     }
 
+    $includeAll = !empty($filters['_activity_ledger_all']);
     $page = max(1, (int) ($filters['page'] ?? 1));
     $maxLimit = !empty($filters['_export']) ? 5000 : 200;
     $limit = max(10, min($maxLimit, (int) ($filters['limit'] ?? 80)));
     $offset = ($page - 1) * $limit;
+    $paginationSql = $includeAll ? '' : ' LIMIT ' . $limit . ' OFFSET ' . $offset;
 
     $sql = 'SELECT t.*, a.name AS account_name, ta.name AS to_account_name, c.name AS category_name,
                 cp.name AS counterparty_name, b.bill_no
@@ -4977,8 +4979,7 @@ function jg_accounting_transactions(PDO $pdo, array $filters): array
             LEFT JOIN accounting_counterparties cp ON cp.id = t.counterparty_id
             LEFT JOIN accounting_bills b ON b.id = t.bill_id
             WHERE ' . implode(' AND ', $where) . '
-            ORDER BY t.transaction_date DESC, t.id DESC
-            LIMIT ' . $limit . ' OFFSET ' . $offset;
+            ORDER BY t.transaction_date DESC, t.id DESC' . $paginationSql;
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
 
@@ -5134,9 +5135,11 @@ function jg_accounting_bills(PDO $pdo, array $filters): array
         $params[':search'] = '%' . $search . '%';
     }
 
+    $includeAll = !empty($filters['_activity_ledger_all']);
     $page = max(1, (int) ($filters['page'] ?? 1));
     $limit = max(10, min(200, (int) ($filters['limit'] ?? 80)));
     $offset = ($page - 1) * $limit;
+    $paginationSql = $includeAll ? '' : ' LIMIT ' . $limit . ' OFFSET ' . $offset;
 
     $stmt = $pdo->prepare(
         'SELECT b.*, cp.name AS vendor_name, c.name AS category_name, a.name AS expected_account_name
@@ -5149,8 +5152,7 @@ function jg_accounting_bills(PDO $pdo, array $filters): array
             CASE WHEN b.status = "overdue" THEN 0 WHEN b.status IN ("unpaid", "partially_paid") THEN 1 ELSE 2 END,
             b.due_date IS NULL,
             b.due_date ASC,
-            b.id DESC
-         LIMIT ' . $limit . ' OFFSET ' . $offset
+            b.id DESC' . $paginationSql
     );
     $stmt->execute($params);
     $today = jg_accounting_now()->format('Y-m-d');
@@ -5238,7 +5240,7 @@ function jg_accounting_activity_ledger(PDO $pdo, array $filters): array
     $month = jg_accounting_month($filters['month'] ?? null);
     $rows = [];
     $transactionRowIndexes = [];
-    foreach (jg_accounting_transactions($pdo, [...$filters, 'month' => $month, 'limit' => 200]) as $transaction) {
+    foreach (jg_accounting_transactions($pdo, [...$filters, 'month' => $month, '_activity_ledger_all' => true]) as $transaction) {
         $direction = (string) ($transaction['direction'] ?? '');
         $amount = (int) ($transaction['amount'] ?? 0);
         $signedAmount = $direction === 'money_in' ? $amount : ($direction === 'money_out' ? -$amount : 0);
@@ -5302,7 +5304,7 @@ function jg_accounting_activity_ledger(PDO $pdo, array $filters): array
         $rows[] = $payment;
     }
 
-    foreach (jg_accounting_bills($pdo, ['month' => $month, 'limit' => 200]) as $bill) {
+    foreach (jg_accounting_bills($pdo, ['month' => $month, '_activity_ledger_all' => true]) as $bill) {
         $createdTime = substr((string) ($bill['created_at'] ?? ''), 11, 8);
         $rows[] = [
             'id' => 'bill:' . (int) $bill['id'],
@@ -5425,7 +5427,6 @@ function jg_accounting_activity_ledger(PDO $pdo, array $filters): array
         $time = strcmp((string) ($right['sort_at'] ?? ''), (string) ($left['sort_at'] ?? ''));
         return $time !== 0 ? $time : strcmp((string) ($right['id'] ?? ''), (string) ($left['id'] ?? ''));
     });
-    $rows = array_slice($rows, 0, 200);
     foreach ($rows as &$row) {
         unset($row['sort_at']);
     }

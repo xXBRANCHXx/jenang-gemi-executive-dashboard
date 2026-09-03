@@ -103,8 +103,25 @@ overhaul_expect(false, in_array('transaction:1:source', $ids, true), 'Entries in
 overhaul_expect(false, in_array('website_order:jenang_gemi_website:WEB-BEFORE', $ids, true), 'Automatic cash received before reconciliation must not be counted again.');
 overhaul_expect(false, in_array('direct_order:WA-BEFORE', $ids, true), 'Backfilled direct-order payments before reconciliation must not alter the reconciled bank balance.');
 
+$bulkTransaction = $pdo->prepare('INSERT INTO accounting_transactions
+    (id, transaction_key, status, type, direction, account_id, to_account_id, counterparty_id, category_id,
+     business_month, transaction_date, amount, transfer_fee_amount, reference_no, order_no, invoice_no, notes, channel, brand,
+     payment_method, receipt_status, receipt_url, review_status, review_reason, bill_id, created_at)
+    VALUES
+    (:id, :transaction_key, "posted", "expense", "money_out", 1, NULL, NULL, 1,
+     "2026-07", "2026-07-31", 1000, 0, "", "", "", "Bulk ledger coverage", "Offline", "Jenang Gemi",
+     "Cash", "not_required", "", "clean", "", NULL, :created_at)');
+for ($id = 100; $id < 305; $id++) {
+    $bulkTransaction->execute([
+        ':id' => $id,
+        ':transaction_key' => 'BULK-' . $id,
+        ':created_at' => sprintf('2026-07-31 12:%02d:%02d', intdiv($id - 100, 60), ($id - 100) % 60),
+    ]);
+}
+
 $ledger = jg_accounting_activity_ledger($pdo, ['month' => '2026-07']);
 $ledgerKinds = array_values(array_unique(array_column($ledger, 'kind')));
+overhaul_expect(true, count($ledger) > 200, 'The Activity ledger must not truncate a busy month at 200 rows.');
 overhaul_expect(true, in_array('transaction', $ledgerKinds, true), 'Manual entries must appear in the unified activity ledger.');
 overhaul_expect(true, in_array('automatic', $ledgerKinds, true), 'Automatic cash must appear in the unified activity ledger.');
 overhaul_expect(true, in_array('reconciliation', $ledgerKinds, true), 'Reconciliations must appear in the unified activity ledger.');
@@ -118,5 +135,6 @@ overhaul_expect('walk-in-proof.png', $walkInLedger['receipts'][0]['name'] ?? '',
 $newerIndex = array_search('transaction:2', array_column($ledger, 'id'), true);
 $olderIndex = array_search('transaction:1', array_column($ledger, 'id'), true);
 overhaul_expect(true, is_int($newerIndex) && is_int($olderIndex) && $newerIndex < $olderIndex, 'The activity ledger must rank newer entries above older entries.');
+overhaul_expect(true, in_array('transaction:1', array_column($ledger, 'id'), true), 'Older manual entries must remain visible after more than 200 newer rows.');
 
 echo "accounting-overhaul-test: ok\n";
