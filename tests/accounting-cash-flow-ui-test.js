@@ -29,6 +29,8 @@ expect(script.includes("['http:', 'https:'].includes(receiptUrl.protocol)"), 'Ca
 expect(api.includes("$action === 'cash_flow'") && api.includes('jg_accounting_cash_flow_report'), 'The Accounting API must expose the actual-payment cash-flow report.');
 expect(css.includes('.cash-flow-chart') && css.includes('.cash-flow-table'), 'The daily chart and full cash-flow breakdown must be styled.');
 expect(css.includes('--admin-bg: #000') && css.includes('background: #000 !important'), 'The cash-flow report must use true black instead of navy surfaces.');
+expect(css.includes(":root[data-admin-theme='light'] .is-cash-flow") && css.includes('--cash-flow-surface: #f4f2eb'), 'Cash Flow must provide a deliberate, page-specific light theme instead of forcing the black report palette.');
+expect(css.includes("color-scheme: light") && css.includes('--cash-flow-income: #087a58') && css.includes('--cash-flow-cost: #c03a41'), 'Cash Flow light mode must use accessible native controls and legible semantic income/cost colors.');
 expect(css.includes('.cash-flow-kpi + .cash-flow-kpi') && css.includes('border-left: 1px solid'), 'Cash-flow totals must use quiet dividers instead of separate cards.');
 expect(css.includes('@media (max-width: 680px)') && css.includes('.cash-flow-kpis'), 'The Cash Flow page must adapt for mobile screens.');
 

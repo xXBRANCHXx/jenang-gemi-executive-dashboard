@@ -40314,3 +40314,337 @@ a.admin-accounting-breakdown-row:focus-visible { background: color-mix(in srgb, 
   .admin-category-guide-footer { align-items: stretch; flex-direction: column; }
   .admin-category-guide-footer > a { justify-content: center; }
 }
+
+/* Cash Flow light theme: warm, editorial, and purpose-built for financial review. */
+:root[data-admin-theme='light'] .is-cash-flow {
+  --admin-bg: #f4f2eb;
+  --admin-surface: #faf9f5;
+  --admin-surface-strong: #ffffff;
+  --admin-surface-soft: #ebe9e1;
+  --admin-border: rgba(29, 43, 35, 0.12);
+  --admin-text: #17211b;
+  --admin-muted: #68716b;
+  --admin-shadow: 0 18px 50px rgba(42, 48, 39, 0.08);
+  --cash-flow-surface: #f4f2eb;
+  --cash-flow-surface-soft: #ebe9e1;
+  --cash-flow-border: #d5d6cd;
+  --cash-flow-text: #17211b;
+  --cash-flow-muted: #68716b;
+  --cash-flow-income: #087a58;
+  --cash-flow-cost: #c03a41;
+  --cash-flow-accent: #53680b;
+  color-scheme: light;
+  background: #f4f2eb !important;
+}
+
+:root[data-admin-theme='light'] .is-cash-flow :is(.admin-app, .admin-shell, .admin-shell-main, .admin-topbar) {
+  background: #f4f2eb !important;
+}
+
+:root[data-admin-theme='light'] .is-cash-flow .admin-rail,
+:root[data-admin-theme='light'] .is-cash-flow .admin-app.admin-app-suite .admin-rail {
+  border-right-color: #d7d8d0;
+  background: rgba(250, 249, 245, 0.94);
+  box-shadow: 8px 0 32px rgba(31, 42, 34, 0.035);
+}
+
+:root[data-admin-theme='light'] .is-cash-flow .cash-flow-topbar .admin-topbar-brand h1 {
+  color: var(--cash-flow-text);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+:root[data-admin-theme='light'] .is-cash-flow .cash-flow-topbar .admin-topbar-brand p {
+  color: #606a63;
+}
+
+:root[data-admin-theme='light'] .is-cash-flow .cash-flow-topbar [data-admin-home-chrome] {
+  color: #263129;
+}
+
+:root[data-admin-theme='light'] .is-cash-flow .cash-flow-back {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  color: #61705f;
+  font-weight: 750;
+}
+
+:root[data-admin-theme='light'] .is-cash-flow .cash-flow-back:hover,
+:root[data-admin-theme='light'] .is-cash-flow .cash-flow-back:focus-visible {
+  color: var(--cash-flow-income);
+}
+
+:root[data-admin-theme='light'] .is-cash-flow .cash-flow-toolbar {
+  position: relative;
+  margin-inline: -22px;
+  padding: 22px;
+  border-color: #d5d6cd;
+  background:
+    radial-gradient(circle at 12% 20%, rgba(187, 219, 82, 0.16), transparent 30%),
+    rgba(255, 255, 255, 0.34);
+}
+
+:root[data-admin-theme='light'] .is-cash-flow .cash-flow-toolbar::after {
+  position: absolute;
+  right: 22px;
+  bottom: -1px;
+  left: 22px;
+  height: 2px;
+  background: linear-gradient(90deg, var(--cash-flow-income), #bfd858 42%, transparent 88%);
+  content: "";
+  opacity: 0.72;
+}
+
+:root[data-admin-theme='light'] .is-cash-flow :is(.cash-flow-toolbar, .cash-flow-section) h2 {
+  color: var(--cash-flow-text);
+}
+
+:root[data-admin-theme='light'] .is-cash-flow :is(.cash-flow-toolbar p, .cash-flow-section header p) {
+  color: var(--cash-flow-muted);
+}
+
+:root[data-admin-theme='light'] .is-cash-flow .admin-panel-kicker {
+  color: #687525;
+}
+
+:root[data-admin-theme='light'] .is-cash-flow :is(.cash-flow-period-controls, .cash-flow-ledger-filters) label > span {
+  color: #647068;
+}
+
+:root[data-admin-theme='light'] .is-cash-flow :is(.cash-flow-period-controls, .cash-flow-ledger-filters) :is(select, input),
+:root[data-admin-theme='light'] .is-cash-flow .cash-flow-period-controls button {
+  border-color: #cfd2c8;
+  background: rgba(255, 255, 255, 0.88);
+  color: #202b24;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.9), 0 6px 16px rgba(36, 48, 39, 0.04);
+}
+
+:root[data-admin-theme='light'] .is-cash-flow .cash-flow-period-controls button span {
+  color: var(--cash-flow-income);
+}
+
+:root[data-admin-theme='light'] .is-cash-flow :is(.cash-flow-period-controls, .cash-flow-ledger-filters) :is(select, input):focus,
+:root[data-admin-theme='light'] .is-cash-flow .cash-flow-period-controls button:focus-visible,
+:root[data-admin-theme='light'] .is-cash-flow .cash-flow-period-controls button:hover {
+  border-color: #85927e;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(8, 122, 88, 0.1), 0 8px 20px rgba(36, 48, 39, 0.06);
+}
+
+:root[data-admin-theme='light'] .is-cash-flow .cash-flow-kpis {
+  border-color: var(--cash-flow-border);
+  background: rgba(255, 255, 255, 0.18);
+}
+
+:root[data-admin-theme='light'] .is-cash-flow .cash-flow-kpi {
+  overflow: hidden;
+}
+
+:root[data-admin-theme='light'] .is-cash-flow .cash-flow-kpi::before {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 3px;
+  background: #aab0a8;
+  content: "";
+  opacity: 0.55;
+}
+
+:root[data-admin-theme='light'] .is-cash-flow .cash-flow-kpi.is-net {
+  background: linear-gradient(135deg, rgba(205, 226, 112, 0.19), rgba(255, 255, 255, 0) 72%);
+}
+
+:root[data-admin-theme='light'] .is-cash-flow .cash-flow-kpi.is-income {
+  background: linear-gradient(135deg, rgba(8, 122, 88, 0.075), transparent 72%);
+}
+
+:root[data-admin-theme='light'] .is-cash-flow .cash-flow-kpi.is-cost {
+  background: linear-gradient(135deg, rgba(197, 66, 72, 0.06), transparent 72%);
+}
+
+:root[data-admin-theme='light'] .is-cash-flow .cash-flow-kpi.is-net::before {
+  background: linear-gradient(90deg, #667c12, #c4dc62);
+  opacity: 1;
+}
+
+:root[data-admin-theme='light'] .is-cash-flow .cash-flow-kpi.is-income::before {
+  background: var(--cash-flow-income);
+  opacity: 0.9;
+}
+
+:root[data-admin-theme='light'] .is-cash-flow .cash-flow-kpi.is-cost::before,
+:root[data-admin-theme='light'] .is-cash-flow .cash-flow-kpi.is-negative::before {
+  background: var(--cash-flow-cost);
+  opacity: 0.9;
+}
+
+:root[data-admin-theme='light'] .is-cash-flow .cash-flow-kpi + .cash-flow-kpi {
+  border-left-color: var(--cash-flow-border);
+}
+
+:root[data-admin-theme='light'] .is-cash-flow .cash-flow-kpi > span {
+  color: #5f6b63;
+}
+
+:root[data-admin-theme='light'] .is-cash-flow .cash-flow-kpi strong {
+  color: var(--cash-flow-text);
+}
+
+:root[data-admin-theme='light'] .is-cash-flow .cash-flow-kpi.is-income strong {
+  color: var(--cash-flow-income);
+}
+
+:root[data-admin-theme='light'] .is-cash-flow .cash-flow-kpi.is-cost strong,
+:root[data-admin-theme='light'] .is-cash-flow .cash-flow-kpi.is-negative strong {
+  color: var(--cash-flow-cost);
+}
+
+:root[data-admin-theme='light'] .is-cash-flow .cash-flow-kpi small {
+  color: #647068;
+}
+
+:root[data-admin-theme='light'] .is-cash-flow .cash-flow-section {
+  border-bottom-color: var(--cash-flow-border);
+}
+
+:root[data-admin-theme='light'] .is-cash-flow .cash-flow-legend {
+  color: var(--cash-flow-muted);
+}
+
+:root[data-admin-theme='light'] .is-cash-flow .cash-flow-chart-axis,
+:root[data-admin-theme='light'] .is-cash-flow .cash-flow-day > span {
+  color: #616c64;
+}
+
+:root[data-admin-theme='light'] .is-cash-flow .cash-flow-chart {
+  border-bottom-color: #bfc4ba;
+  background: linear-gradient(to bottom, rgba(62, 75, 66, 0.14) 1px, transparent 1px) top / 100% 50% repeat-y;
+}
+
+:root[data-admin-theme='light'] .is-cash-flow .cash-flow-day-bars .is-income {
+  background: linear-gradient(180deg, #10a878, var(--cash-flow-income));
+  box-shadow: 0 4px 10px rgba(8, 122, 88, 0.16);
+}
+
+:root[data-admin-theme='light'] .is-cash-flow .cash-flow-day-bars .is-cost {
+  background: linear-gradient(180deg, #ea6d6f, var(--cash-flow-cost));
+  box-shadow: 0 4px 10px rgba(197, 66, 72, 0.13);
+}
+
+:root[data-admin-theme='light'] .is-cash-flow .cash-flow-day:hover::after,
+:root[data-admin-theme='light'] .is-cash-flow .cash-flow-day:focus::after {
+  border-color: #263129;
+  background: #17211b;
+  color: #fbfaf6;
+  box-shadow: 0 14px 32px rgba(25, 34, 28, 0.2);
+}
+
+:root[data-admin-theme='light'] .is-cash-flow .cash-flow-breakdown + .cash-flow-breakdown {
+  border-left-color: var(--cash-flow-border);
+}
+
+:root[data-admin-theme='light'] .is-cash-flow .cash-flow-summary-row {
+  border-top-color: #dcddd6;
+}
+
+:root[data-admin-theme='light'] .is-cash-flow .cash-flow-summary-row strong {
+  color: #273129;
+}
+
+:root[data-admin-theme='light'] .is-cash-flow .cash-flow-summary-row span {
+  color: #657068;
+}
+
+:root[data-admin-theme='light'] .is-cash-flow .cash-flow-summary-row > b {
+  color: #1c271f;
+}
+
+:root[data-admin-theme='light'] .is-cash-flow .cash-flow-summary-bar {
+  background: #dfe1d9;
+}
+
+:root[data-admin-theme='light'] .is-cash-flow .cash-flow-table th,
+:root[data-admin-theme='light'] .is-cash-flow .cash-flow-table td {
+  border-bottom-color: #dfe0d8;
+  color: #39433c;
+}
+
+:root[data-admin-theme='light'] .is-cash-flow .cash-flow-table th {
+  border-top-color: #c9ccc2;
+  border-bottom-color: #bcc1b6;
+  background: rgba(244, 242, 235, 0.96);
+  color: #687168;
+  backdrop-filter: blur(12px);
+}
+
+:root[data-admin-theme='light'] .is-cash-flow .cash-flow-table tbody tr {
+  transition: background-color 140ms ease;
+}
+
+:root[data-admin-theme='light'] .is-cash-flow .cash-flow-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.58);
+}
+
+:root[data-admin-theme='light'] .is-cash-flow .cash-flow-table td small {
+  color: #606b63;
+}
+
+:root[data-admin-theme='light'] .is-cash-flow .cash-flow-table a {
+  color: #4b6410;
+  font-weight: 750;
+  text-decoration: underline;
+  text-decoration-color: rgba(75, 100, 16, 0.28);
+  text-underline-offset: 3px;
+}
+
+:root[data-admin-theme='light'] .is-cash-flow .cash-flow-methodology summary {
+  color: #5e695f;
+}
+
+:root[data-admin-theme='light'] .is-cash-flow .cash-flow-methodology summary:hover,
+:root[data-admin-theme='light'] .is-cash-flow .cash-flow-methodology[open] summary {
+  color: var(--cash-flow-income);
+}
+
+:root[data-admin-theme='light'] .is-cash-flow .cash-flow-methodology p {
+  color: #647068;
+}
+
+@media (max-width: 980px) {
+  :root[data-admin-theme='light'] .is-cash-flow .cash-flow-breakdown + .cash-flow-breakdown {
+    border-top-color: var(--cash-flow-border);
+  }
+}
+
+@media (max-width: 680px) {
+  :root[data-admin-theme='light'] .is-cash-flow .cash-flow-toolbar {
+    margin-inline: -10px;
+    padding-inline: 10px;
+  }
+
+  :root[data-admin-theme='light'] .is-cash-flow .cash-flow-toolbar::after {
+    right: 10px;
+    left: 10px;
+  }
+
+  :root[data-admin-theme='light'] .is-cash-flow .cash-flow-kpi.is-net {
+    border-bottom-color: var(--cash-flow-border);
+  }
+
+  :root[data-admin-theme='light'] .is-cash-flow .cash-flow-kpi.is-cost {
+    border-left-color: var(--cash-flow-border);
+  }
+
+  :root[data-admin-theme='light'] .is-cash-flow .cash-flow-chart-axis {
+    background: #f4f2eb;
+  }
+
+  :root[data-admin-theme='light'] .is-cash-flow .cash-flow-table tr {
+    border-bottom-color: #d2d5cc;
+  }
+
+  :root[data-admin-theme='light'] .is-cash-flow .cash-flow-table td::before {
+    color: #647068;
+  }
+}
