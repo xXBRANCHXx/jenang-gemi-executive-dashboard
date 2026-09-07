@@ -3440,6 +3440,62 @@ function jg_accounting_direct_order_cash_records(PDO $pdo, array $bounds = []): 
     return $records;
 }
 
+/** Completed Store Ops counter sales live in the SKU database, not whatsapp_orders. */
+function jg_accounting_store_ops_walkin_cash_records(PDO $pdo, array $bounds = [], ?PDO $skuPdo = null): array
+{
+    try {
+        $skuPdo ??= (string) $pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite'
+            ? $pdo : jg_accounting_purchase_order_db();
+        $where = ['invoice_type = "walk_in"', 'analytics_visible = 1', 'total > 0'];
+        $params = [];
+        jg_accounting_apply_source_time_filter($where, $params, $bounds, 'created_at', 'walkin_paid');
+        $stmt = $skuPdo->prepare(
+            'SELECT invoice_number, customer_name, payment_method, total, created_by, created_at
+             FROM store_ops_walkin_invoices WHERE ' . implode(' AND ', $where) . '
+             ORDER BY created_at ASC, invoice_number ASC'
+        );
+        $stmt->execute($params);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Throwable $error) {
+        // Older installations may not have Store Ops invoices yet.
+        error_log('Store Ops walk-in accounting source unavailable: ' . $error->getMessage());
+        return [];
+    }
+    $offsets = jg_accounting_manual_website_money_in_offsets($pdo, array_column($rows, 'invoice_number'));
+    $records = [];
+    foreach ($rows as $row) {
+        $invoice = (string) $row['invoice_number'];
+        $gross = max(0, (int) round((float) $row['total']));
+        $offset = min($gross, max(0, (int) ($offsets[$invoice] ?? 0)));
+        $usable = $gross - $offset;
+        $occurredAt = (string) $row['created_at'];
+        $records[] = [
+            'source_key' => 'store_ops_walkin:' . $invoice,
+            'source_type' => 'direct_order_payment',
+            'source_table' => 'store_ops_walkin_invoices',
+            'source_id' => 0,
+            'source_label' => 'Walk-in ' . $invoice,
+            'occurred_at' => $occurredAt,
+            'record_date' => jg_accounting_source_local_date($occurredAt),
+            'business_month' => jg_accounting_source_business_month($occurredAt),
+            'platform' => 'walk_in',
+            'account_key' => strtolower(trim((string) $row['payment_method'])) === 'cash' ? 'cash-office' : 'bca-main',
+            'order_id' => $invoice,
+            'counterparty' => (string) $row['customer_name'],
+            'gross_amount' => $gross,
+            'manual_offset_amount' => $offset,
+            'usable_cash_amount' => $usable,
+            'amount' => $usable,
+            'currency' => 'IDR',
+            'record_status' => $usable > 0 ? ($offset > 0 ? 'partially_offset' : 'usable') : 'fully_offset',
+            'cash_basis' => 'completed_store_ops_walkin_invoice',
+            'created_by' => (string) $row['created_by'],
+            'notes' => (string) $row['payment_method'] . ' • Store Ops walk-in',
+        ];
+    }
+    return $records;
+}
+
 function jg_accounting_direct_order_outstanding_context(PDO $pdo): array
 {
     try {
@@ -3476,7 +3532,8 @@ function jg_accounting_automatic_cash_records(PDO $pdo, array $filters = []): ar
     $records = array_merge(
         jg_accounting_wallet_cash_records($pdo, $bounds),
         jg_accounting_website_cash_records($pdo, $bounds),
-        jg_accounting_direct_order_cash_records($pdo, $bounds)
+        jg_accounting_direct_order_cash_records($pdo, $bounds),
+        jg_accounting_store_ops_walkin_cash_records($pdo, $bounds)
     );
     usort($records, static function (array $left, array $right): int {
         $time = strcmp((string) ($right['occurred_at'] ?? ''), (string) ($left['occurred_at'] ?? ''));
@@ -5362,7 +5419,7 @@ function jg_accounting_activity_ledger(PDO $pdo, array $filters): array
         };
         $automaticAccountId = jg_accounting_cash_record_account_id($pdo, $record, $automaticRoutes);
         $sourceId = (int) ($record['source_id'] ?? 0);
-        $isDirectOrder = $sourceType === 'direct_order_payment';
+        $isDirectOrder = $sourceType === 'direct_order_payment' && ($record['source_table'] ?? '') === 'whatsapp_orders';
         $rows[] = [
             'id' => 'automatic:' . (string) ($record['source_key'] ?? ''),
             'kind' => 'automatic',
