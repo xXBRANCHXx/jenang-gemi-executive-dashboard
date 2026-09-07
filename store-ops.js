@@ -256,7 +256,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   applyTheme();
   initializeFromUrl();
-  load().catch((error) => {
+  const dashboard = document.querySelector('[data-admin-dashboard]');
+  if (!dashboard || root.classList.contains('is-active')) load().catch((error) => {
     if (refs.status) refs.status.textContent = 'Error';
     if (refs.tableBody) refs.tableBody.innerHTML = `<tr><td colspan="9" class="admin-empty">${escapeHtml(error.message)}</td></tr>`;
   });

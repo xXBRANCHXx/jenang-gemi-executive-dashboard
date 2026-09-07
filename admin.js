@@ -3589,7 +3589,27 @@ document.addEventListener('DOMContentLoaded', () => {
     renderOverviewLocationHeatmap();
   };
 
-  const requestJson = async (url, options = {}) => {
+  // Bound database-backed work, including background wallet and page preloads.
+  const runDashboardRequest = (() => {
+    const pending = [];
+    let active = 0;
+    const drain = () => {
+      while (active < 2 && pending.length) {
+        const { task, resolve, reject } = pending.shift();
+        active += 1;
+        Promise.resolve().then(task).then(resolve, reject).finally(() => {
+          active -= 1;
+          drain();
+        });
+      }
+    };
+    return (task) => new Promise((resolve, reject) => {
+      pending.push({ task, resolve, reject });
+      drain();
+    });
+  })();
+
+  const requestJsonAttempt = (url, options = {}) => runDashboardRequest(async () => {
     const { timeoutMs = 20000, ...fetchOptions } = options;
     const controller = timeoutMs > 0 && !fetchOptions.signal && window.AbortController ? new AbortController() : null;
     const timeoutId = controller ? window.setTimeout(() => controller.abort(), timeoutMs) : null;
@@ -3601,7 +3621,11 @@ document.addEventListener('DOMContentLoaded', () => {
         ...fetchOptions,
         ...(controller ? { signal: controller.signal } : {})
       });
-      const payload = await response.json().catch(() => ({}));
+      const payload = await response.json().catch(() => {
+        const error = new Error(response.ok ? 'The server returned an invalid response. Please try again.' : `HTTP ${response.status}`);
+        error.status = response.status;
+        throw error;
+      });
       if (!response.ok) {
         const requestError = new Error(payload.message || payload.error || `HTTP ${response.status}`);
         requestError.status = response.status;
@@ -3616,6 +3640,18 @@ document.addEventListener('DOMContentLoaded', () => {
       throw error;
     } finally {
       if (timeoutId) window.clearTimeout(timeoutId);
+    }
+  });
+
+  const requestJson = async (url, options = {}) => {
+    try {
+      return await requestJsonAttempt(url, options);
+    } catch (error) {
+      // A brief hosting/database outage must not strand a read-only panel.
+      // Never repeat writes: the server may already have applied the action.
+      if (String(options.method || 'GET').toUpperCase() !== 'GET' || error.status !== 503 || options.signal?.aborted) throw error;
+      await new Promise((resolve) => window.setTimeout(resolve, 1000));
+      return requestJsonAttempt(url, options);
     }
   };
 
@@ -13307,14 +13343,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (isBrowserOnline()) {
       return {
         rendered,
-        refreshPromise: DASHBOARD_FORCE_FRESH_LOAD
-          ? Promise.resolve(false)
-          : loadOverviewSafely({
-              force: true,
-              preferStale: false,
-              background: true,
-              useCache: true
-            })
+        refreshPromise: loadOverviewSafely({
+          force: true,
+          forceRefresh: DASHBOARD_FORCE_FRESH_LOAD,
+          preferStale: false,
+          background: true,
+          useCache: true
+        })
       };
     }
     return { rendered, refreshPromise: Promise.resolve(false) };
@@ -13345,14 +13380,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (isBrowserOnline()) {
       return {
         rendered: restored,
-        refreshPromise: DASHBOARD_FORCE_FRESH_LOAD
-          ? Promise.resolve(false)
-          : loadHomeSafely({
-              force: true,
-              preferStale: false,
-              background: true,
-              useCache: true
-            })
+        refreshPromise: loadHomeSafely({
+          force: true,
+          preferStale: false,
+          background: true,
+          useCache: true
+        })
       };
     }
     return { rendered: restored, refreshPromise: Promise.resolve(false) };
@@ -13690,7 +13723,10 @@ document.addEventListener('DOMContentLoaded', () => {
 	          )
 	        ])
 	      ];
-	      await Promise.allSettled(tasks.map(runBackgroundPageTask));
+	      for (const task of tasks) {
+	        if (!canStartBackgroundPageWork()) break;
+	        await runBackgroundPageTask(task).catch(() => false);
+	      }
 	      scheduleWalletBackgroundRefresh({ force: true });
 	    };
 

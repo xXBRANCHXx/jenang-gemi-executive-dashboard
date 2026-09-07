@@ -228,22 +228,35 @@ function jg_api_health_db_check(string $id, string $label, string $category, arr
             throw new RuntimeException('Database configuration is incomplete.');
         }
 
-        $pdo = new PDO(
-            sprintf(
-                'mysql:host=%s;port=%s;dbname=%s;charset=%s',
-                (string) ($config['host'] ?? 'localhost'),
-                (string) ($config['port'] ?? '3306'),
-                (string) ($config['name'] ?? ''),
-                (string) ($config['charset'] ?? 'utf8mb4')
-            ),
-            (string) ($config['user'] ?? ''),
-            (string) ($config['pass'] ?? ''),
-            [
-                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-                PDO::ATTR_TIMEOUT => 8,
-            ]
-        );
+        $pdo = null;
+        $connectionError = null;
+        $hosts = $config['host_candidates'] ?? [(string) ($config['host'] ?? 'localhost')];
+        foreach ($hosts as $host) {
+            try {
+                $pdo = new PDO(
+                    sprintf(
+                        'mysql:host=%s;port=%s;dbname=%s;charset=%s',
+                        $host,
+                        (string) ($config['port'] ?? '3306'),
+                        (string) ($config['name'] ?? ''),
+                        (string) ($config['charset'] ?? 'utf8mb4')
+                    ),
+                    (string) ($config['user'] ?? ''),
+                    (string) ($config['pass'] ?? ''),
+                    [
+                        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                        PDO::ATTR_TIMEOUT => 8,
+                    ]
+                );
+                break;
+            } catch (Throwable $candidateError) {
+                $connectionError = $candidateError;
+            }
+        }
+        if (!$pdo instanceof PDO) {
+            throw $connectionError ?? new RuntimeException('No database host is configured.');
+        }
         $stmt = $pdo->prepare(
             'SELECT COUNT(*)
              FROM INFORMATION_SCHEMA.TABLES
@@ -361,6 +374,7 @@ function jg_api_health_run_checks(): array
     $analyticsConfig = analyticsResolveDatabaseConfig();
     $skuConfig = jg_sku_db_config();
     $partnerConfig = jg_partner_db_config();
+    $partnerConfig['host_candidates'] = jg_partner_db_host_candidates($partnerConfig['host']);
     $results[] = jg_api_health_db_check('analytics-db', 'Executive Analytics Database', 'Database', $analyticsConfig, 'analytics_events');
     $results[] = jg_api_health_db_check('sku-db', 'SKU Database', 'Database', $skuConfig, 'sku_skus');
     $results[] = jg_api_health_db_check('partner-db', 'Partner Profile Database', 'Database', $partnerConfig, 'partner_profiles', true);

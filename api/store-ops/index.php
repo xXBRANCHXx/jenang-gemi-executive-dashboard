@@ -207,12 +207,14 @@ function jg_exec_store_ops_orders(PDO $pdo, array $bounds): array
     $params = [
         ':start_at' => $bounds['start_utc'],
         ':end_at' => $bounds['end_utc'],
+        ':activity_start_at' => $bounds['start_utc'],
+        ':activity_end_at' => $bounds['end_utc'],
     ];
 
     $where[] = '(
         f.status <> "FULFILLED"
         OR (f.fulfilled_at >= :start_at AND f.fulfilled_at < :end_at)
-        OR (COALESCE(f.last_activity_at, f.claimed_at, f.created_at) >= :start_at AND COALESCE(f.last_activity_at, f.claimed_at, f.created_at) < :end_at)
+        OR (COALESCE(f.last_activity_at, f.claimed_at, f.created_at) >= :activity_start_at AND COALESCE(f.last_activity_at, f.claimed_at, f.created_at) < :activity_end_at)
     )';
 
     $employees = jg_exec_store_ops_csv_filter('employees');
@@ -239,8 +241,9 @@ function jg_exec_store_ops_orders(PDO $pdo, array $bounds): array
 
     $source = trim((string) ($_GET['source'] ?? ''));
     if ($source !== '') {
-        $where[] = '(f.source_platform LIKE :source OR f.source_account LIKE :source)';
-        $params[':source'] = '%' . $source . '%';
+        $where[] = '(f.source_platform LIKE :source_platform_filter OR f.source_account LIKE :source_account_filter)';
+        $params[':source_platform_filter'] = '%' . $source . '%';
+        $params[':source_account_filter'] = '%' . $source . '%';
     }
 
     $query = trim((string) ($_GET['q'] ?? $_GET['order_id'] ?? ''));
