@@ -612,6 +612,7 @@ const AD_VIEW_AUTO_SYNC_INTERVAL_MS = 5 * 60 * 1000;
 const AD_VIEW_ATTRIBUTION_REFRESH_DAYS = 8;
 const AD_VIEW_PREFERENCES_STORAGE_KEY = 'jg-dashboard-ad-view-preferences-v1';
 const AUTO_MARKETPLACE_REFRESH_MIN_MS = 5 * 60 * 1000;
+const AUTO_MARKETPLACE_REFRESH_RETRY_MS = 60 * 1000;
 const AUTO_MARKETPLACE_REFRESH_STORAGE_KEY = 'jg-dashboard-auto-marketplace-refresh-at-v1';
 const HOME_CACHE_PREFIX = 'jg-dashboard-home-cache-v1';
 const WALLET_CACHE_STORAGE_KEY = 'jg-dashboard-wallet-cache-v1';
@@ -10937,8 +10938,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (state.marketplaceRefresh.loading) return false;
     if (isDashboardMemoryPressure()) {
       await releaseInactiveViewsForMemory(state.activeView);
-      if (isDashboardMemoryPressure() && !interactive) return false;
+      if (isDashboardMemoryPressure() && !interactive && state.activeView !== 'overview') return false;
     }
+    if (state.marketplaceRefresh.loading) return false;
     const year = state.overview.year;
     state.marketplaceRefresh.loading = true;
     state.marketplaceRefresh.error = '';
@@ -10978,30 +10980,45 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const refreshMarketplaceData = () => runMarketplaceRefresh({ interactive: true });
 
+  let overviewSnapshotRefreshPromise = null;
   const refreshOverviewSnapshot = () => {
     renderOverviewFreshness();
-    if (document.hidden || state.activeView !== 'overview' || state.marketplaceRefresh.loading) {
+    if (document.hidden || !isBrowserOnline() || state.activeView !== 'overview' || state.marketplaceRefresh.loading) {
       return Promise.resolve(false);
     }
-    return loadOverviewSafely({
-      force: true,
-      forceRefresh: true,
-      preferStale: false,
-      background: true,
-      skipHourly: true
-    });
+    // Focus, visibility, reconnect, and the timer can fire together.
+    if (overviewSnapshotRefreshPromise) return overviewSnapshotRefreshPromise;
+    overviewSnapshotRefreshPromise = (async () => {
+      const loaded = await loadOverviewSafely({
+        force: true,
+        forceRefresh: true,
+        preferStale: false,
+        background: true,
+        skipHourly: true
+      });
+      // A successful GET can still contain the server's stale fallback. Repair
+      // the source automatically instead of repeatedly repainting that fallback.
+      const synced = await runAutomaticMarketplaceRefresh();
+      return loaded || synced;
+    })().finally(() => { overviewSnapshotRefreshPromise = null; });
+    return overviewSnapshotRefreshPromise;
   };
 
   const runAutomaticMarketplaceRefresh = async (options = {}) => {
-    if (document.hidden || state.marketplaceRefresh.loading) return false;
+    if (document.hidden || !isBrowserOnline() || state.marketplaceRefresh.loading) return false;
     const now = Date.now();
-    const lastAttemptAt = Math.max(state.marketplaceRefresh.lastAutoAttemptAt, readAutoMarketplaceRefreshAt());
-    const syncStatus = state.overview.data?.sync_status;
-    const syncLooksStale = syncStatus?.fresh === false || syncStatus?.status === 'missing';
-    const force = Boolean(options.force || syncLooksStale);
-    if (!force && now - lastAttemptAt < AUTO_MARKETPLACE_REFRESH_MIN_MS) {
-      return false;
-    }
+    const recordedAttemptAt = Math.max(state.marketplaceRefresh.lastAutoAttemptAt || 0, readAutoMarketplaceRefreshAt());
+    // A clock correction must not disable recovery until a future timestamp.
+    const lastAttemptAt = recordedAttemptAt <= now ? recordedAttemptAt : 0;
+    const data = state.overview.data;
+    const syncStatus = data?.sync_status;
+    const generatedAt = overviewSnapshotTime(data);
+    const needsRecovery = Boolean(options.force || state.marketplaceRefresh.error
+      || !generatedAt || now - generatedAt >= 120000
+      || syncStatus?.fresh !== true || syncStatus?.status !== 'ok');
+    const minimumInterval = needsRecovery ? AUTO_MARKETPLACE_REFRESH_RETRY_MS : AUTO_MARKETPLACE_REFRESH_MIN_MS;
+    // Even stale/failed results obey the retry floor across tabs.
+    if (lastAttemptAt > 0 && now - lastAttemptAt < minimumInterval) return false;
     writeAutoMarketplaceRefreshAt(now);
     return runMarketplaceRefresh({ interactive: false });
   };
@@ -13884,13 +13901,10 @@ document.addEventListener('DOMContentLoaded', () => {
       scheduleBackgroundLoads();
       if (!DASHBOARD_FORCE_FRESH_LOAD) {
         scheduleWalletBackgroundRefresh({ force: true });
-        window.setTimeout(() => {
-          const syncStatus = state.overview.data?.sync_status;
-          if (syncStatus?.fresh === false || syncStatus?.status === 'missing') {
-            runAutomaticMarketplaceRefresh({ force: true }).catch(() => {});
-          }
-        }, 2500);
       }
+      window.setTimeout(() => {
+        runAutomaticMarketplaceRefresh().catch(() => {});
+      }, 2500);
     });
 
   overviewRefs.metricButtons.forEach((button) => {
@@ -15905,7 +15919,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	  window.addEventListener('focus', () => {
 	    refreshForLocalDateRollover().catch(() => {});
 	    if (canStartBackgroundPageWork()) preloadOrderMemory().catch(() => {});
-	    runAutomaticMarketplaceRefresh().catch(() => {});
+	    if (state.activeView !== 'overview') runAutomaticMarketplaceRefresh().catch(() => {});
 	    refreshOverviewSnapshot().catch(() => {});
 	    scheduleWalletBackgroundRefresh({ force: true });
     refreshAdCreditAlertStatus({ force: true }).catch(() => false);
@@ -15923,7 +15937,7 @@ document.addEventListener('DOMContentLoaded', () => {
   window.setInterval(() => {
     if (!document.hidden) {
       refreshForLocalDateRollover().catch(() => {});
-      runAutomaticMarketplaceRefresh().catch(() => {});
+      if (state.activeView !== 'overview') runAutomaticMarketplaceRefresh().catch(() => {});
       scheduleWalletBackgroundRefresh();
       refreshAdCreditAlertStatus().catch(() => false);
 	      if (state.activeView === 'overview') {
