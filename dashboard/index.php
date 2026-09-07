@@ -58,7 +58,7 @@ $sidebarSection = match (true) {
     in_array($requestedView ?? '', ['website', 'site', 'home', 'campaign', 'campaigns', 'landing', 'landing-pages'], true) => 'website',
     default => 'home',
 };
-$dashboardBuildVersion = 'exec3.98.9';
+$dashboardBuildVersion = 'exec3.98.10';
 $adminCssVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.js');
 $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/store-ops.js');
@@ -197,7 +197,7 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
                                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.34 5.66"/><path d="M20 4v7h-7"/></svg>
                                 <span data-overview-refresh-label>Refresh View</span>
                             </button>
-                            <span class="admin-live-pill"><span class="admin-live-dot"></span>Live</span>
+                            <span class="admin-live-pill" data-overview-freshness="checking"><span class="admin-live-dot"></span><span data-overview-freshness-label>Checking</span></span>
                         </div>
                         <small data-overview-last-updated>Updated after marketplace sync</small>
                     </div>

@@ -22331,6 +22331,15 @@ body:has(.admin-app[data-sku-db])::after {
   box-shadow: 0 0 0 4px rgba(22, 163, 74, 0.14), 0 0 14px rgba(22, 163, 74, 0.42);
 }
 
+:root .admin-app.admin-app-suite[data-admin-dashboard] [data-overview-freshness]:not([data-overview-freshness='live']) {
+  color: var(--admin-muted, #888);
+}
+
+:root .admin-app.admin-app-suite[data-admin-dashboard] [data-overview-freshness]:not([data-overview-freshness='live']) .admin-live-dot {
+  background: currentColor;
+  box-shadow: none;
+}
+
 :root[data-admin-theme='light'] .admin-app.admin-app-suite[data-admin-dashboard] .admin-overview-refresh:hover {
   color: #2563eb;
 }

@@ -2780,6 +2780,7 @@ document.addEventListener('DOMContentLoaded', () => {
     },
 	    marketplaceRefresh: {
 	      loading: false,
+	      error: '',
 	      lastAutoAttemptAt: 0
 	    },
 	    clientCache: {
@@ -2883,6 +2884,8 @@ document.addEventListener('DOMContentLoaded', () => {
     rangeNext: document.querySelector('[data-overview-range-next]'),
     refreshButton: document.querySelector('[data-overview-refresh]'),
     refreshLabel: document.querySelector('[data-overview-refresh-label]'),
+    freshness: document.querySelector('[data-overview-freshness]'),
+    freshnessLabel: document.querySelector('[data-overview-freshness-label]'),
     lastUpdated: document.querySelector('[data-overview-last-updated]'),
     tableBody: document.querySelector('[data-overview-table-body]'),
     notes: document.querySelector('[data-overview-notes]'),
@@ -4368,6 +4371,50 @@ document.addEventListener('DOMContentLoaded', () => {
         <small>${formatRegionalInteger(item.count)} of ${formatRegionalInteger(total)}</small>
       </div>
     `).join('');
+  };
+
+  const overviewSnapshotTime = (data) => {
+    const timestamp = Date.parse(data?.generated_at || data?.meta?.generated_at || '');
+    return Number.isFinite(timestamp) ? timestamp : 0;
+  };
+
+  const overviewFreshnessStatus = (data, refresh, verifiedAt, online, now = Date.now()) => {
+    if (!online) return 'offline';
+    if (refresh.loading) return 'refreshing';
+    if (refresh.error) return 'cached';
+    if (!data) return 'checking';
+    const generatedAt = overviewSnapshotTime(data);
+    return verifiedAt > 0 && now - verifiedAt < 120000 && generatedAt > 0
+      && now - generatedAt < 120000 && data.sync_status?.fresh === true
+      && data.sync_status?.status === 'ok' ? 'live' : 'cached';
+  };
+
+  const renderOverviewFreshness = () => {
+    const refresh = state.marketplaceRefresh;
+    const data = state.overview.data;
+    const status = overviewFreshnessStatus(data, refresh, state.overview.verifiedAt || 0, isBrowserOnline());
+    if (overviewRefs.freshness) overviewRefs.freshness.dataset.overviewFreshness = status;
+    if (overviewRefs.freshnessLabel) overviewRefs.freshnessLabel.textContent = ({
+      live: 'Live', cached: 'Cached', checking: 'Checking', refreshing: 'Refreshing', offline: 'Offline'
+    })[status];
+    if (overviewRefs.refreshButton) {
+      overviewRefs.refreshButton.disabled = refresh.loading;
+      overviewRefs.refreshButton.classList.toggle('is-loading', refresh.loading);
+      overviewRefs.refreshButton.setAttribute('aria-busy', String(refresh.loading));
+    }
+    if (overviewRefs.refreshLabel) overviewRefs.refreshLabel.textContent = refresh.loading
+      ? 'Refreshing…' : refresh.error ? 'Try again' : 'Refresh View';
+    if (overviewRefs.lastUpdated) {
+      if (refresh.loading) {
+        overviewRefs.lastUpdated.textContent = 'Refreshing dashboard data…';
+      } else if (overviewSnapshotTime(data)) {
+        setLastUpdated(overviewRefs.lastUpdated, data.generated_at || data.meta?.generated_at);
+        if (refresh.error) overviewRefs.lastUpdated.textContent = `Refresh failed · ${overviewRefs.lastUpdated.textContent}`;
+      } else {
+        overviewRefs.lastUpdated.textContent = refresh.error ? 'Refresh failed. Please try again.' : 'Waiting for dashboard data…';
+      }
+      overviewRefs.lastUpdated.title = refresh.error || '';
+    }
   };
 
   const setLastUpdated = (target, isoString) => {
@@ -6917,7 +6964,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     renderSalesRecap(data);
-    setLastUpdated(overviewRefs.lastUpdated, data.generated_at || data.meta?.generated_at);
+    renderOverviewFreshness();
     renderOverviewYearControls(years);
     setSalesRecapOpen(state.overview.salesRecapOpen);
     overviewRefs.metricButtons.forEach((button) => {
@@ -10690,14 +10737,23 @@ document.addEventListener('DOMContentLoaded', () => {
 	  };
 
 	  const applyOverviewData = (data, options = {}) => {
-	    if (!data || typeof data !== 'object') return;
+	    if (!data || typeof data !== 'object') return false;
+    if (state.marketplaceRefresh.loading && !options.marketplaceRefresh) return false;
+    const current = state.overview.data;
+    if (current && String(current.year) === String(data.year)
+      && overviewSnapshotTime(data) < overviewSnapshotTime(current)) return false;
+    if (options.verified) {
+      state.overview.verifiedAt = Date.now();
+      state.marketplaceRefresh.error = '';
+    }
 	    state.overview.loadedAt = options.loadedAt || Date.now();
 	    if (state.activeView === 'overview') {
 	      renderOverview(data);
-	      return;
+	      return true;
 	    }
 	    state.overview.data = data;
 	    resetOrderWindowsFromOverview();
+    return true;
 	  };
 
 	  const applyHomeData = (data, options = {}) => {
@@ -10785,6 +10841,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
 	  const loadOverview = async (options = {}) => {
+    if (state.marketplaceRefresh.loading) return;
 	    if (!options.forceRefresh && !options.force && state.overview.data) {
 	      if (isFresh(state.overview.loadedAt, VIEW_CACHE_TTL_MS.overview)) {
 	        applyOverviewData(state.overview.data, { loadedAt: state.overview.loadedAt });
@@ -10818,21 +10875,26 @@ document.addEventListener('DOMContentLoaded', () => {
 	    if (!options.skipHourly) {
 	      refreshOverviewHourlyRows(requestToken).catch(() => {});
 	    }
-    const [data, customData] = await Promise.all([
-      requestJson(buildSalesUrl(state.overview.year, {
-        refresh: Boolean(options.forceRefresh),
-        cacheBust: Boolean(options.forceRefresh || options.force)
-      })),
-      state.overview.customRange.active && state.overview.customRange.startDate && state.overview.customRange.endDate
-        ? requestOrderFacts(state.overview.customRange.startDate, state.overview.customRange.endDate).catch(() => ({ orders: [] }))
-        : Promise.resolve(null)
-    ]);
-    if (!isLatestRequest('overview', requestToken)) return;
+    let data, customData;
+    try {
+      [data, customData] = await Promise.all([
+        requestJson(buildSalesUrl(state.overview.year, {
+          refresh: Boolean(options.forceRefresh),
+          cacheBust: Boolean(options.forceRefresh || options.force)
+        })),
+        state.overview.customRange.active && state.overview.customRange.startDate && state.overview.customRange.endDate
+          ? requestOrderFacts(state.overview.customRange.startDate, state.overview.customRange.endDate).catch(() => ({ orders: [] }))
+          : Promise.resolve(null)
+      ]);
+    } catch (error) {
+      if (!isLatestRequest('overview', requestToken) || state.marketplaceRefresh.loading) return;
+      throw error;
+    }
+    if (!isLatestRequest('overview', requestToken) || state.marketplaceRefresh.loading) return;
     if (customData) {
       state.overview.customRange.rows = Array.isArray(customData.orders) ? customData.orders : [];
 	    }
-	    writeOverviewCache(state.overview.year, data);
-	    applyOverviewData(data);
+	    if (applyOverviewData(data, { verified: true })) writeOverviewCache(state.overview.year, data);
 	  };
 
   const readAutoMarketplaceRefreshAt = () => {
@@ -10870,57 +10932,46 @@ document.addEventListener('DOMContentLoaded', () => {
 	    if (canStartBackgroundPageWork()) preloadOrderMemory({ reset: true, repair: true }).catch(() => {});
 	  };
 
-	  const runMarketplaceRefresh = async (options = {}) => {
-	    const interactive = Boolean(options.interactive);
-	    if (state.marketplaceRefresh.loading) return false;
-	    if (isDashboardMemoryPressure()) {
-	      await releaseInactiveViewsForMemory(state.activeView);
-	      if (isDashboardMemoryPressure() && !interactive) return false;
-	    }
-	    state.marketplaceRefresh.loading = true;
-    if (interactive && overviewRefs.refreshButton) {
-      overviewRefs.refreshButton.disabled = true;
-      overviewRefs.refreshButton.classList.add('is-loading');
-      overviewRefs.refreshButton.setAttribute('aria-busy', 'true');
+  const runMarketplaceRefresh = async (options = {}) => {
+    const interactive = Boolean(options.interactive);
+    if (state.marketplaceRefresh.loading) return false;
+    if (isDashboardMemoryPressure()) {
+      await releaseInactiveViewsForMemory(state.activeView);
+      if (isDashboardMemoryPressure() && !interactive) return false;
     }
-    if (interactive && overviewRefs.refreshLabel) overviewRefs.refreshLabel.textContent = 'Refreshing…';
-    if (interactive && overviewRefs.lastUpdated) overviewRefs.lastUpdated.textContent = 'Refreshing the dashboard view…';
-
+    const year = state.overview.year;
+    state.marketplaceRefresh.loading = true;
+    state.marketplaceRefresh.error = '';
+    // Invalidate reads started before this sync, including their late errors.
+    beginRequest('overview');
+    renderOverviewFreshness();
     try {
-	      const data = await requestJson(buildSalesUrl(state.overview.year, {
-	        manualRefresh: true,
-	        cacheBust: true
-	      }), { method: 'POST', timeoutMs: 90000 });
-	      writeOverviewCache(state.overview.year, data);
-	      applyOverviewData(data);
+      const data = await requestJson(buildSalesUrl(year, {
+        manualRefresh: true,
+        cacheBust: true
+      }), { method: 'POST', timeoutMs: 90000 });
+      if (!data?.ok) throw new Error(data?.message || data?.error || 'The refresh did not return dashboard data.');
+      if (state.overview.year === year) {
+        if (applyOverviewData(data, { verified: true, marketplaceRefresh: true })) {
+          writeOverviewCache(year, data);
+        }
+      } else {
+        writeOverviewCache(year, data);
+      }
       await refreshOverviewHourlyRows(null, { repair: true }).catch(() => {});
       if (state.activeView === 'overview') {
         await loadOverviewLocationRows({ force: true, incremental: true, repair: true }).catch(() => {});
       }
       await syncActiveOrderViewsAfterRepair();
-      if (interactive && overviewRefs.refreshLabel) {
-        overviewRefs.refreshLabel.textContent = 'Refreshed';
-        window.setTimeout(() => {
-          if (!state.marketplaceRefresh.loading && overviewRefs.refreshLabel) {
-            overviewRefs.refreshLabel.textContent = 'Refresh View';
-          }
-        }, 1800);
-      }
       return true;
     } catch (error) {
-      if (interactive && overviewRefs.refreshLabel) overviewRefs.refreshLabel.textContent = 'Try again';
-      if (interactive && overviewRefs.lastUpdated) {
-        overviewRefs.lastUpdated.textContent = `Refresh failed: ${error.message || 'Unable to sync marketplace data.'}`;
-      } else if (!String(error?.message || '').includes('marketplace_refresh_in_progress')) {
-        console.warn('Automatic marketplace refresh failed', error);
-      }
+      state.marketplaceRefresh.error = error.message || 'Unable to sync marketplace data.';
       return false;
     } finally {
       state.marketplaceRefresh.loading = false;
-      if (interactive && overviewRefs.refreshButton) {
-        overviewRefs.refreshButton.disabled = false;
-        overviewRefs.refreshButton.classList.remove('is-loading');
-        overviewRefs.refreshButton.removeAttribute('aria-busy');
+      renderOverviewFreshness();
+      if (state.overview.year !== year) {
+        loadOverviewSafely({ force: true, preferStale: false }).catch(() => {});
       }
     }
   };
@@ -10928,6 +10979,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const refreshMarketplaceData = () => runMarketplaceRefresh({ interactive: true });
 
   const refreshOverviewSnapshot = () => {
+    renderOverviewFreshness();
     if (document.hidden || state.activeView !== 'overview' || state.marketplaceRefresh.loading) {
       return Promise.resolve(false);
     }
@@ -13006,6 +13058,8 @@ document.addEventListener('DOMContentLoaded', () => {
       await lifecycleRequest;
       return true;
     } catch (error) {
+      state.marketplaceRefresh.error = error.message || 'Unable to load fresh dashboard data.';
+      renderOverviewFreshness();
       renderViewError('overview', error);
       return false;
     }
@@ -15860,7 +15914,9 @@ document.addEventListener('DOMContentLoaded', () => {
       refreshOverviewHourlyRows(null, { repair: true }).catch(() => {});
     }
   });
+  window.addEventListener('offline', renderOverviewFreshness);
   window.addEventListener('online', () => {
+    refreshOverviewSnapshot().catch(() => {});
     scheduleWalletBackgroundRefresh({ force: true });
     refreshAdCreditAlertStatus({ force: true }).catch(() => false);
   });

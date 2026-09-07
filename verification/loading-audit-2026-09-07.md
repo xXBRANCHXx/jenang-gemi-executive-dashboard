@@ -35,3 +35,11 @@ Deployed build: `exec3.98.9`. Fix commit `6f57724` was pushed to `main` and veri
 - All ten fresh `/api/api-health/?run=1` checks passed, including marketplace synchronization and the analytics, SKU, and partner databases.
 - The Ads credit-alert endpoint returned HTTP 200, `ok: true`, and the corrected JSON content type.
 - This successful check does not prove that the earlier intermittent hosting/database failures cannot recur. Investigate hosting logs if they recur, especially during Ad View synchronization.
+
+## Homepage refresh correction — exec3.98.10
+
+A follow-up check found that cached background responses could overwrite the refresh timestamp while a manual sync was still running. Automatic syncs also left the button looking idle, and the Live badge was unconditional HTML.
+
+The correction invalidates pre-sync reads, blocks cached updates during sync, rejects snapshots older than the currently displayed data, and gives automatic and manual syncs the same visible busy state. Live now requires a recently verified, recent snapshot with a healthy marketplace sync; cached data, offline state, and refresh failures no longer stay green. The displayed timestamp continues to come from the returned data, not the browser clock.
+
+All 43 JavaScript tests pass, including executable regressions for an in-flight poll racing an automatic refresh, stale data/timestamp rejection, and cached/offline/error indicators. The browser-only pre-deployment test advanced the displayed time from 11:50:51 to 11:52:38 WIB with no timestamp regressions or JavaScript exceptions.
