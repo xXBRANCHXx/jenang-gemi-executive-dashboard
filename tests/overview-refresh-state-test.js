@@ -77,5 +77,16 @@ console.log('Overview refresh: pending feedback, cache races, data/timestamp con
   assert.equal(writes[0].data.totals.orders, 12);
   assert.equal(scope.overviewRefs.lastUpdated.textContent, `Updated ${newest.generated_at}`);
   assert.equal(scope.overviewRefs.refreshButton.disabled, false);
-  console.log('Overview in-flight poll versus automatic refresh: passed.');
+  const memoryRelease = deferred();
+  let memorySyncs = 0;
+  scope.isDashboardMemoryPressure = () => true;
+  scope.releaseInactiveViewsForMemory = () => memoryRelease.promise;
+  scope.requestJson = async () => { memorySyncs++; return { ...newest, ok: true }; };
+  const automatic = scope.refresh({ interactive: false });
+  const simultaneous = scope.refresh({ interactive: true });
+  memoryRelease.resolve();
+  assert.equal(await automatic, true, 'Memory pressure must not silently disable sync of the visible Overview.');
+  assert.equal(await simultaneous, false, 'Memory cleanup must not allow simultaneous syncs to pass the loading guard.');
+  assert.equal(memorySyncs, 1);
+  console.log('Overview in-flight poll, automatic refresh, and memory cleanup races: passed.');
 })().catch(error => { console.error(error); process.exitCode = 1; });
