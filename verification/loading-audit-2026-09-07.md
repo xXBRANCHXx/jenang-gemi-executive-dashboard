@@ -1,7 +1,7 @@
 # Executive Dashboard loading audit — 7 September 2026
 
 Production inspected: `https://admin.jenanggemi.com`, build `exec3.98.8`.
-Prepared build: `exec3.98.9`. Changes are local and have not been deployed.
+Deployed build: `exec3.98.9`. Fix commit `6f57724` was pushed to `main` and verified on production on 7 September 2026. The findings below describe the initial audit; the deployment results follow.
 
 ## Findings
 
@@ -26,6 +26,12 @@ Prepared build: `exec3.98.9`. Changes are local and have not been deployed.
 - SKU Database has separate authentication. Its login and its database/catalog integration were checked, but its separately authenticated editing UI was not exercised.
 - Production PHP fixes and hosting behavior after deployment remain unverified. No production source/configuration, marketplace credentials, or business records were manually edited. Normal page opening may run the application's existing automatic synchronization.
 
-## Follow-up
+## Production deployment verification
 
-Deploy the prepared build only with production deployment authorization/access, then check Store Ops and API Health against the live database. Inspect the hosting PHP/database logs for the intermittent connection-denied errors, especially while Ad View synchronizes. Repeat the live page checks after that issue is resolved.
+- Deployment to `main` was explicitly authorized by the user.
+- Remote `main` accepted fix commit `6f57724`; the live authenticated dashboard reported `exec3.98.9`.
+- The live Overview left its loading state with no JavaScript exceptions or failed API responses in the observed run.
+- `/api/store-ops/?view=store-ops` returned HTTP 200 and `ok: true`.
+- All ten fresh `/api/api-health/?run=1` checks passed, including marketplace synchronization and the analytics, SKU, and partner databases.
+- The Ads credit-alert endpoint returned HTTP 200, `ok: true`, and the corrected JSON content type.
+- This successful check does not prove that the earlier intermittent hosting/database failures cannot recur. Investigate hosting logs if they recur, especially during Ad View synchronization.
