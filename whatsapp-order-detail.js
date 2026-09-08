@@ -155,7 +155,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const cancelOrder = async () => {
     if (!orderId || !refs.cancel || refs.cancel.disabled) return;
-    if (!window.confirm(`Cancel ${orderId}? This is allowed only before Store Ops claims the order.`)) return;
+    if (!window.confirm(`Cancel ${orderId}? Cancellation is allowed while the order is unclaimed in Store Ops, including after a claim is released.`)) return;
     refs.cancel.disabled = true;
     refs.cancel.classList.add('is-loading');
     if (refs.error) {
