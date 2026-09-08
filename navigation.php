@@ -39,6 +39,7 @@ function render_executive_navigation(): void
     while (!empty($root['parent'])) $root = $pages[$root['parent']];
     $version = max(filemtime(__DIR__ . '/navigation.css'), filemtime(__DIR__ . '/navigation.js'), filemtime(__DIR__ . '/navigation-map.json'));
     echo '<link rel="stylesheet" href="/navigation.css?v=' . $version . '">';
+    echo '<link rel="stylesheet" href="/executive-ui.css?v=' . filemtime(__DIR__ . '/executive-ui.css') . '" media="screen">';
     echo '<button type="button" class="admin-mobile-rail-toggle ed-mobile-toggle" data-admin-rail-toggle aria-controls="admin-rail-nav" aria-expanded="false" aria-label="Open navigation">' . ed_navigation_icon('menu') . '</button>';
     echo '<div class="admin-mobile-rail-backdrop" data-admin-rail-backdrop hidden></div>';
     echo '<aside class="admin-rail ed-nav" id="admin-rail-nav" data-admin-rail data-ed-current="' . ed_navigation_escape($current) . '" aria-label="Executive Dashboard navigation">';
