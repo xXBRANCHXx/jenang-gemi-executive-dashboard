@@ -25,6 +25,6 @@ expect(dashboardScript.includes('lifecycle_chart') && dashboardScript.includes('
 expect(ordersPage.includes('data-repeat-order-chart') && ordersPage.includes('Repeat customer order share'), 'The homepage must place a monthly repeat-customer order chart beside Customer Lifecycle.');
 expect(dashboardScript.includes('repeat_order_trend') && dashboardScript.includes('repeat_customer_orders') && dashboardScript.includes('identified marketplace orders this month are repeat'), 'The repeat-order chart must show marketplace-only monthly trend data and the current-month numerator and denominator.');
 expect(ordersPage.includes('Shopee · TikTok · Tokopedia') && ordersPage.includes('Partner, website, WhatsApp, and walk-in orders are excluded') && ordersPage.includes('stable marketplace buyer identity'), 'The repeat-order chart must explain its marketplace allowlist, exclusions, and stable-identity denominator.');
-expect(!sidebarSource.includes("'key' => 'customers'"), 'Customer Profiles must not appear in the left sidebar.');
+expect(JSON.parse(fs.readFileSync(path.join(root, 'navigation-map.json'), 'utf8')).pages.some(page => page.id === 'customers' && page.area === 'sales'), 'Customer profiles must be discoverable in Sales.');
 
 console.log('customer profiles UI tests passed');

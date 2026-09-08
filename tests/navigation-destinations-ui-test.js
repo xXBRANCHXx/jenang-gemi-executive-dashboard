@@ -22,8 +22,9 @@ const settings = dashboard.slice(
   dashboard.indexOf('</main>', dashboard.indexOf('data-view-panel="settings"'))
 );
 
-expect(!sidebar.includes("'key' => 'wallet'"), 'Wallet must not appear in the global sidebar.');
-expect(!sidebar.includes("'key' => 'api'"), 'API must not appear in the global sidebar.');
+const navMap = JSON.parse(read('navigation-map.json'));
+expect(navMap.pages.some(page => page.id === 'wallet' && page.area === 'finance'), 'Wallet belongs in Finance.');
+expect(navMap.pages.some(page => page.id === 'api' && page.area === 'settings'), 'API Health belongs in Settings.');
 expect(settings.includes('href="../api-health/"'), 'Settings must provide the API Health destination.');
 expect(settings.includes('Open API health'), 'Settings must label the API Health action clearly.');
 expect(accounting.includes('href="../dashboard/?view=wallet"'), 'Accounting must provide the Wallet destination.');

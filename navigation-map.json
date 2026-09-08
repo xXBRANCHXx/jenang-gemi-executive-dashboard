@@ -1,0 +1,521 @@
+{
+  "areas": [
+    {
+      "id": "overview",
+      "title": "Overview",
+      "icon": "home"
+    },
+    {
+      "id": "sales",
+      "title": "Sales",
+      "icon": "orders"
+    },
+    {
+      "id": "products",
+      "title": "Products & stock",
+      "icon": "box"
+    },
+    {
+      "id": "finance",
+      "title": "Finance",
+      "icon": "wallet"
+    },
+    {
+      "id": "growth",
+      "title": "Growth",
+      "icon": "chart"
+    },
+    {
+      "id": "partners",
+      "title": "Partners",
+      "icon": "users"
+    },
+    {
+      "id": "settings",
+      "title": "Settings",
+      "icon": "settings"
+    }
+  ],
+  "pages": [
+    {
+      "id": "overview",
+      "title": "Business overview",
+      "source": "/dashboard/?view=overview",
+      "description": "Your sales, cash and stock, in one place.",
+      "area": "overview",
+      "section": "WORKSPACE",
+      "href": "/dashboard/?view=overview",
+      "view": "overview"
+    },
+    {
+      "id": "daily",
+      "title": "Daily sales",
+      "source": "/dashboard/?view=daily",
+      "description": "Compare daily quantities and revenue across every channel.",
+      "area": "overview",
+      "section": "WORKSPACE",
+      "href": "/dashboard/?view=daily",
+      "view": "daily"
+    },
+    {
+      "id": "context",
+      "title": "Activity & signals",
+      "source": "/dashboard/?view=context",
+      "description": "Operational context and the signals behind your numbers.",
+      "area": "overview",
+      "section": "WORKSPACE",
+      "href": "/dashboard/?view=context",
+      "view": "context"
+    },
+    {
+      "id": "orders",
+      "title": "All orders",
+      "source": "/dashboard/?view=orders",
+      "description": "Find and inspect orders across your sales channels.",
+      "area": "sales",
+      "section": "ORDERS",
+      "href": "/dashboard/?view=orders",
+      "view": "orders"
+    },
+    {
+      "id": "direct-history",
+      "title": "Direct order history",
+      "source": "/whatsapp-order-history/",
+      "description": "WhatsApp and walk-in orders in one searchable ledger.",
+      "area": "sales",
+      "section": "ORDERS",
+      "href": "/whatsapp-order-history/",
+      "view": null
+    },
+    {
+      "id": "direct-new",
+      "title": "Create direct order",
+      "source": "/whatsapp-orders/",
+      "description": "Create a WhatsApp or walk-in sale.",
+      "parent": "direct-history",
+      "area": "sales",
+      "section": "ORDERS",
+      "href": "/whatsapp-orders/",
+      "view": null
+    },
+    {
+      "id": "order",
+      "title": "Order details",
+      "source": "/order/",
+      "description": "Items, payments and fulfillment for a selected order.",
+      "parent": "orders",
+      "area": "sales",
+      "section": "ORDERS",
+      "href": "/order/",
+      "view": null
+    },
+    {
+      "id": "direct-detail",
+      "title": "Direct order details",
+      "source": "/whatsapp-order/",
+      "description": "The full breakdown of a selected direct order.",
+      "parent": "direct-history",
+      "area": "sales",
+      "section": "ORDERS",
+      "href": "/whatsapp-order/",
+      "view": null
+    },
+    {
+      "id": "fulfillment",
+      "title": "Store operations",
+      "source": "/dashboard/?view=store-ops",
+      "description": "Follow orders from preparation to dispatch.",
+      "area": "sales",
+      "section": "FULFILLMENT",
+      "href": "/dashboard/?view=store-ops",
+      "view": "store-ops"
+    },
+    {
+      "id": "shipments",
+      "title": "Shipment arrangements",
+      "source": "/dashboard/?view=shipment-arrangement",
+      "description": "Review automatic arrangements and shipping activity.",
+      "area": "sales",
+      "section": "FULFILLMENT",
+      "href": "/dashboard/?view=shipment-arrangement",
+      "view": "shipment-arrangement"
+    },
+    {
+      "id": "customers",
+      "title": "Customer profiles",
+      "source": "/customer-profiles/",
+      "description": "Explore repeat purchases and cross-channel customer history.",
+      "area": "sales",
+      "section": "CUSTOMERS",
+      "href": "/customer-profiles/",
+      "view": null
+    },
+    {
+      "id": "catalog",
+      "title": "SKU database",
+      "source": "/sku-db/",
+      "description": "Manage products, variants, sizes and selling prices.",
+      "area": "products",
+      "section": "CATALOG",
+      "href": "/sku-db/",
+      "view": null
+    },
+    {
+      "id": "sku-new",
+      "title": "Create SKU",
+      "source": "/sku-db/new/",
+      "description": "Add a new catalog entry.",
+      "parent": "catalog",
+      "area": "products",
+      "section": "CATALOG",
+      "href": "/sku-db/new/",
+      "view": null
+    },
+    {
+      "id": "costs",
+      "title": "Product costs",
+      "source": "/product-costs/",
+      "description": "Maintain COGS and packing costs by period.",
+      "area": "products",
+      "section": "CATALOG",
+      "href": "/product-costs/",
+      "view": null
+    },
+    {
+      "id": "inventory",
+      "title": "Stock coverage",
+      "source": "/dashboard/?view=inventory-recap",
+      "description": "See days of stock remaining and what needs replenishing.",
+      "area": "products",
+      "section": "INVENTORY",
+      "href": "/dashboard/?view=inventory-recap",
+      "view": "inventory-recap"
+    },
+    {
+      "id": "purchase",
+      "title": "Purchase planning",
+      "source": "/dashboard/?view=purchase-order",
+      "description": "Review recommended quantities and prepare a purchase plan.",
+      "area": "products",
+      "section": "INVENTORY",
+      "href": "/dashboard/?view=purchase-order",
+      "view": "purchase-order"
+    },
+    {
+      "id": "po-history",
+      "title": "Purchase history",
+      "source": "/dashboard/?view=po-history",
+      "description": "Find saved purchase orders and their status.",
+      "area": "products",
+      "section": "INVENTORY",
+      "href": "/dashboard/?view=po-history",
+      "view": "po-history"
+    },
+    {
+      "id": "po-detail",
+      "title": "Purchase order details",
+      "source": "/dashboard/?view=po-detail",
+      "description": "Inspect the selected purchase order and its lifecycle.",
+      "parent": "po-history",
+      "area": "products",
+      "section": "INVENTORY",
+      "href": "/dashboard/?view=po-detail",
+      "view": "po-detail"
+    },
+    {
+      "id": "breakdowns",
+      "title": "Product performance",
+      "source": "/product-breakdowns/",
+      "description": "Compare sales across your product catalog.",
+      "area": "products",
+      "section": "REPORTS",
+      "href": "/product-breakdowns/",
+      "view": null
+    },
+    {
+      "id": "analytics",
+      "title": "Product analytics",
+      "source": "/dashboard/product-analytics/",
+      "description": "Sales pace, platforms, partners and pack sizes for one product.",
+      "parent": "breakdowns",
+      "area": "products",
+      "section": "REPORTS",
+      "href": "/dashboard/product-analytics/",
+      "view": null
+    },
+    {
+      "id": "flavors",
+      "title": "Flavor breakdown",
+      "source": "/dashboard/product-flavors/",
+      "description": "Explore flavor and volume for the selected product.",
+      "parent": "analytics",
+      "area": "products",
+      "section": "REPORTS",
+      "href": "/dashboard/product-flavors/",
+      "view": null
+    },
+    {
+      "id": "accounting",
+      "title": "Accounting",
+      "source": "/profit-loss/",
+      "description": "Manage cash, bills, expenses, transfers and review items.",
+      "area": "finance",
+      "section": "MONEY MANAGEMENT",
+      "href": "/profit-loss/",
+      "view": null
+    },
+    {
+      "id": "wallet",
+      "title": "Marketplace wallets",
+      "source": "/dashboard/?view=wallet",
+      "description": "Track balances, settlements and marketplace cash-outs.",
+      "area": "finance",
+      "section": "MONEY MANAGEMENT",
+      "href": "/dashboard/?view=wallet",
+      "view": "wallet"
+    },
+    {
+      "id": "cash-flow",
+      "title": "Cash flow",
+      "source": "/cash-flow/",
+      "description": "See money received and costs actually paid.",
+      "area": "finance",
+      "section": "REPORTS",
+      "href": "/cash-flow/",
+      "view": null
+    },
+    {
+      "id": "pnl",
+      "title": "Profit & loss",
+      "source": "/profit-and-loss/",
+      "description": "Revenue, cost of goods, expenses and net profit.",
+      "area": "finance",
+      "section": "REPORTS",
+      "href": "/profit-and-loss/",
+      "view": null
+    },
+    {
+      "id": "expense-settings",
+      "title": "Expense categories",
+      "source": "/profit-and-loss/expense-settings/",
+      "description": "Control how expenses appear in the profit and loss report.",
+      "area": "finance",
+      "section": "CONFIGURATION & GUIDES",
+      "href": "/profit-and-loss/expense-settings/",
+      "view": null
+    },
+    {
+      "id": "category",
+      "title": "Category guide",
+      "source": "/accounting-category/",
+      "description": "Understand a selected accounting category.",
+      "parent": "accounting",
+      "area": "finance",
+      "section": "CONFIGURATION & GUIDES",
+      "href": "/accounting-category/",
+      "view": null
+    },
+    {
+      "id": "accounting-flow",
+      "title": "How accounting works",
+      "source": "/accounting-flow/",
+      "description": "Follow the flow between accounting, wallets and reports.",
+      "area": "finance",
+      "section": "CONFIGURATION & GUIDES",
+      "href": "/accounting-flow/",
+      "view": null
+    },
+    {
+      "id": "ads",
+      "title": "Shopee ads",
+      "source": "/dashboard/?view=ad-view",
+      "description": "Compare live ads, credit, spend and contribution.",
+      "area": "growth",
+      "section": "PERFORMANCE",
+      "href": "/dashboard/?view=ad-view",
+      "view": "ad-view"
+    },
+    {
+      "id": "campaigns",
+      "title": "Landing page campaigns",
+      "source": "/dashboard/?view=campaigns",
+      "description": "Understand traffic and conversions from campaign pages.",
+      "area": "growth",
+      "section": "PERFORMANCE",
+      "href": "/dashboard/?view=campaigns",
+      "view": "home"
+    },
+    {
+      "id": "website",
+      "title": "Websites & storefronts",
+      "source": "/dashboard/?view=website",
+      "description": "Manage Jenang Gemi and ZERO storefronts, discounts and website analytics.",
+      "area": "growth",
+      "section": "WEBSITES & CONTENT",
+      "href": "/dashboard/?view=website",
+      "view": "website"
+    },
+    {
+      "id": "blog",
+      "title": "Blog studio",
+      "source": "/blog-builder/",
+      "description": "Write, review and schedule ZERO articles.",
+      "area": "growth",
+      "section": "WEBSITES & CONTENT",
+      "href": "/blog-builder/",
+      "view": null
+    },
+    {
+      "id": "blog-preview",
+      "title": "Article preview",
+      "source": "/blog-preview/",
+      "description": "Preview the selected article before publication.",
+      "parent": "blog",
+      "area": "growth",
+      "section": "WEBSITES & CONTENT",
+      "href": "/blog-preview/",
+      "view": null
+    },
+    {
+      "id": "affiliates",
+      "title": "Affiliate performance",
+      "source": "/affiliate-program/",
+      "description": "Track the affiliate program and its performance.",
+      "area": "growth",
+      "section": "AFFILIATES",
+      "href": "/affiliate-program/",
+      "view": null
+    },
+    {
+      "id": "affiliate-profiles",
+      "title": "Affiliate directory",
+      "source": "/affiliate-profiles/",
+      "description": "Find and manage affiliate profiles.",
+      "area": "growth",
+      "section": "AFFILIATES",
+      "href": "/affiliate-profiles/",
+      "view": null
+    },
+    {
+      "id": "affiliate-detail",
+      "title": "Affiliate profile",
+      "source": "/affiliate-profile/",
+      "description": "Manage a selected affiliate.",
+      "parent": "affiliate-profiles",
+      "area": "growth",
+      "section": "AFFILIATES",
+      "href": "/affiliate-profile/",
+      "view": null
+    },
+    {
+      "id": "partners",
+      "title": "Program overview",
+      "source": "/partner-program/",
+      "description": "Monitor the partner program and open the partner portal.",
+      "area": "partners",
+      "section": "PARTNER PROGRAM",
+      "href": "/partner-program/",
+      "view": null
+    },
+    {
+      "id": "partner-profiles",
+      "title": "Partner directory",
+      "source": "/partner-profiles/",
+      "description": "Find a partner, then access their sales, balance or settings.",
+      "area": "partners",
+      "section": "PARTNER PROGRAM",
+      "href": "/partner-profiles/",
+      "view": null
+    },
+    {
+      "id": "partner-detail",
+      "title": "Partner profile",
+      "source": "/partner-profile/",
+      "description": "Profile, pricing and access for the selected partner.",
+      "parent": "partner-profiles",
+      "area": "partners",
+      "section": "PARTNER PROGRAM",
+      "href": "/partner-profile/",
+      "view": null
+    },
+    {
+      "id": "partner-sales",
+      "title": "Partner sales",
+      "source": "/partner-sales/",
+      "description": "Sales and billing for the selected partner.",
+      "parent": "partner-profiles",
+      "area": "partners",
+      "section": "PARTNER PROGRAM",
+      "href": "/partner-sales/",
+      "view": null
+    },
+    {
+      "id": "partner-stock",
+      "title": "Orders & balance",
+      "source": "/partner-stock-orders/",
+      "description": "Prepaid orders, payment proofs and balance for an eligible partner.",
+      "parent": "partner-profiles",
+      "area": "partners",
+      "section": "PARTNER PROGRAM",
+      "href": "/partner-stock-orders/",
+      "view": null
+    },
+    {
+      "id": "preferences",
+      "title": "Appearance & preferences",
+      "source": "/dashboard/?view=settings",
+      "description": "Theme, locale and analytics device exclusions.",
+      "area": "settings",
+      "section": "PREFERENCES",
+      "href": "/dashboard/?view=settings",
+      "view": "settings"
+    },
+    {
+      "id": "connections",
+      "title": "Marketplace connections",
+      "source": "/back-dash/",
+      "description": "Marketplace controls and integration workspace.",
+      "area": "settings",
+      "section": "CONNECTIONS & OPERATIONS",
+      "href": "/back-dash/",
+      "view": null
+    },
+    {
+      "id": "api",
+      "title": "API health",
+      "source": "/api-health/",
+      "description": "Inspect operational health and connection checks.",
+      "area": "settings",
+      "section": "CONNECTIONS & OPERATIONS",
+      "href": "/api-health/",
+      "view": null
+    },
+    {
+      "id": "activation",
+      "title": "Website order activation",
+      "source": "/dashboard/?view=hard-set",
+      "description": "Manage website order cutover and its activation record.",
+      "area": "settings",
+      "section": "CONNECTIONS & OPERATIONS",
+      "href": "/dashboard/?view=hard-set",
+      "view": "hard-set"
+    }
+  ],
+  "utilities": [
+    {
+      "id": "launcher",
+      "title": "Launch Pad",
+      "href": "/"
+    },
+    {
+      "id": "logout",
+      "title": "Lock dashboard",
+      "href": "/logout/"
+    },
+    {
+      "id": "sku-logout",
+      "title": "Lock SKU database",
+      "href": "/sku-db/logout/"
+    }
+  ]
+}

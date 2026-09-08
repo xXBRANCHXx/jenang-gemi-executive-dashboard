@@ -29,10 +29,8 @@ const websitePanel = dashboard.slice(
   dashboard.indexOf('data-website-detail')
 );
 
-expect(!sidebarSource.includes("'key' => 'campaigns'"), 'Campaigns must not appear in the left sidebar.');
-expect(!sidebarSource.includes("'key' => 'affiliate'"), 'Affiliate must not appear in the left sidebar.');
-expect(script.includes("home: 'website'"), 'Campaigns must keep Website selected as their parent rail section.');
-expect(affiliateProgram.includes("render_admin_sidebar('website')"), 'Affiliate workspace must keep Website selected as its parent rail section.');
+const navMap = JSON.parse(read('navigation-map.json'));
+expect(['campaigns', 'affiliates', 'website'].every(id => navMap.pages.some(page => page.id === id && page.area === 'growth')), 'Campaigns, affiliates and storefronts must be grouped under Growth.');
 expect(websitePanel.includes('admin-website-ecosystem-map'), 'Website landing view must render the ecosystem map.');
 expect(!websitePanel.includes('Live web operations'), 'Website ecosystem must not show a redundant live status.');
 expect(websitePanel.includes('href="../dashboard/?view=campaigns"'), 'Website ecosystem must link to Campaigns.');

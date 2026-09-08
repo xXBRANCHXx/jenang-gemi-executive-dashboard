@@ -31,7 +31,8 @@ $assetVersion = (string) max(
     <link rel="stylesheet" href="../admin.css?v=<?php echo urlencode($assetVersion ?: '1'); ?>">
     <link rel="stylesheet" href="./order-breakdown.css?v=<?php echo urlencode($assetVersion ?: '1'); ?>">
 </head>
-<body class="admin-body admin-order-breakdown-body">
+<body class="ed-standalone admin-body admin-order-breakdown-body">
+    <?php render_admin_sidebar(); ?>
     <main class="admin-order-breakdown-shell" data-order-breakdown data-endpoint="../api/orders/" data-order-id="<?php echo htmlspecialchars($orderId, ENT_QUOTES); ?>">
         <header class="admin-order-breakdown-hero">
             <div>

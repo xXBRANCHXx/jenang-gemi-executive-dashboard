@@ -170,7 +170,7 @@ assert.match(purchaseOrders, /confirmed_at = :confirmed_at, updated_at = :update
 assert.doesNotMatch(purchaseOrders, /confirmed_at = :now, updated_at = :now/, 'Direct PO confirmation must not reuse one named placeholder twice.');
 
 assert.match(navigation, /'purchase-order'\s*=>\s*\[[\s\S]*'label'\s*=>\s*'Purchase Plan'/);
-assert.match(navigation, /'key'\s*=>\s*'inventory-recap'[\s\S]*'label'\s*=>\s*'Inventory Recap'[\s\S]*'icon'\s*=>\s*'admin-rail-icon-inventory'/);
+assert.ok(JSON.parse(fs.readFileSync(path.join(root, 'navigation-map.json'), 'utf8')).pages.some(page => page.href === '/dashboard/?view=inventory-recap' && page.area === 'products'));
 assert.match(styles, /\.admin-rail-icon-inventory/);
 assert.match(styles, /admin-rail-icon-inventory[\s\S]{0,700}M9 3v3h6V3/);
 assert.match(styles, /\.admin-purchase-select\s*\{[\s\S]*\.admin-purchase-select input:checked \+ span/);

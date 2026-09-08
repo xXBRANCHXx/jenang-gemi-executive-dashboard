@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require dirname(__DIR__) . '/auth.php';
+require_once dirname(__DIR__) . '/admin-nav.php';
 
 if (!jg_admin_is_authenticated()) {
     header('Location: ../dashboard/');
@@ -16,13 +17,15 @@ $cssVersion = (string) @filemtime(__DIR__ . '/flow.css');
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex,nofollow">
-    <title>How Accounting Works | Jenang Gemi</title>
+    <title>How Accounting Works | Executive Dashboard</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@600;700&display=swap">
     <link rel="stylesheet" href="./flow.css?v=<?php echo urlencode($cssVersion ?: '1'); ?>">
+<?php render_admin_initial_theme_script(); ?>
 </head>
-<body>
+<body class="ed-standalone">
+<?php render_admin_sidebar(); ?>
 <main>
     <header class="flow-hero">
         <p>Accounting system map</p>

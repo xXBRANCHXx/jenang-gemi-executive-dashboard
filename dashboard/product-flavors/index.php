@@ -33,7 +33,8 @@ $jsVersion = $buildVersion . '-' . (string) @filemtime(__DIR__ . '/product-flavo
     <link rel="stylesheet" href="../../admin.css">
     <link rel="stylesheet" href="./product-flavors.css?v=<?php echo urlencode($cssVersion); ?>">
 </head>
-<body class="product-flavor-body">
+<body class="ed-standalone product-flavor-body">
+    <?php render_admin_sidebar(); ?>
     <main
         class="product-flavor-page"
         data-product-flavor-page

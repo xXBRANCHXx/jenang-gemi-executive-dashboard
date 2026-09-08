@@ -40,7 +40,8 @@ $jsVersion = $buildVersion . '-' . (string) @filemtime(__DIR__ . '/product-analy
     <link rel="stylesheet" href="../../admin.css">
     <link rel="stylesheet" href="./product-analytics.css?v=<?php echo urlencode($cssVersion); ?>">
 </head>
-<body class="product-analytics-body">
+<body class="ed-standalone product-analytics-body">
+    <?php render_admin_sidebar(); ?>
     <main
         class="product-analytics-page"
         data-product-analytics
