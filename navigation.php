@@ -59,7 +59,7 @@ function render_executive_navigation(): void
                 echo '<h3>' . ed_navigation_escape($section) . '</h3>';
             }
             $active = $root['id'] === $item['id'];
-            echo '<a class="ed-page' . ($active ? ' is-current' : '') . '" href="' . ed_navigation_escape($item['href']) . '" data-ed-page="' . $item['id'] . '"' . ($active ? ' aria-current="page"' : '') . (!empty($item['view']) ? ' data-dashboard-view-link="' . ed_navigation_escape($item['view']) . '"' : '') . ($item['id'] === 'orders' ? ' data-dashboard-nav-section="orders" data-nav-label="All orders"' : ($item['id'] === 'ads' ? ' data-dashboard-nav-section="ad-view"' : '')) . '><span>' . ed_navigation_escape($item['title']) . '</span>' . ($item['id'] === 'orders' ? '<i class="admin-rail-unpaid-dot" aria-hidden="true"></i>' : '') . '</a>';
+            echo '<a class="ed-page' . ($active ? ' is-current' : '') . '" href="' . ed_navigation_escape($item['href']) . '" data-ed-page="' . $item['id'] . '"' . ($active ? ' aria-current="page"' : '') . (!empty($item['view']) ? ' data-dashboard-view-link="' . ed_navigation_escape($item['view']) . '"' : '') . ($item['id'] === 'orders' ? ' data-dashboard-nav-section="orders" data-nav-label="All orders"' : ($item['id'] === 'ads' ? ' data-dashboard-nav-section="ad-view"' : '')) . ($item['id'] === 'inventory' ? ' data-menu-alert-item="inventory-recap"' : '') . '><span>' . ed_navigation_escape($item['title']) . '</span>' . ($item['id'] === 'orders' ? '<i class="admin-rail-unpaid-dot" aria-hidden="true"></i>' : '') . '</a>';
         }
         echo '</nav>';
     }

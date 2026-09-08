@@ -53,3 +53,5 @@ body:has(.ed-nav) .admin-topbar .admin-topbar-brand h1{font-size:28px;line-heigh
 body:has(.ed-nav) .admin-topbar{margin-bottom:20px;padding-bottom:16px}
 body:has(.ed-nav) .admin-topbar .admin-topbar-brand>p{font-size:12px;letter-spacing:0;text-transform:none;line-height:1.6}
 @media(max-width:820px){body:has(.ed-nav) .admin-topbar .admin-topbar-brand h1{font-size:23px}}
+
+.ed-page.has-critical-dot{color:#e9b759!important}.ed-page.has-critical-dot:after{content:"";width:6px;height:6px;border-radius:50%;background:#e9b759}

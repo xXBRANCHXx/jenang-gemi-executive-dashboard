@@ -725,7 +725,6 @@ function render_admin_topbar_actions(string $menuContext = ''): void
 
 function render_admin_topbar_action_buttons(string $menuContext = ''): void
 {
-    $menuContext = $menuContext === '' ? admin_current_menu_context() : $menuContext;
     echo '<div class="admin-search-shell admin-search-shell-topbar" data-dashboard-search-shell data-admin-chrome data-website-orders-endpoint="../api/website-orders/">';
     echo '<div class="admin-search-surface" aria-hidden="true">';
     echo '<div class="admin-search-surface-glow"></div>';
@@ -752,17 +751,6 @@ function render_admin_topbar_action_buttons(string $menuContext = ''): void
     echo '</span>';
     echo '<span class="admin-notification-button-copy"><strong>Notifications</strong><small data-billing-notification-summary>No notifications</small></span>';
     echo '</button>';
-
-    echo '<div class="admin-menu-shell" data-menu-shell>';
-    echo '<button type="button" class="admin-ghost-btn admin-menu-trigger" data-menu-trigger data-menu-alert-trigger aria-expanded="false" aria-label="Open dashboard menu">';
-    echo '<svg class="admin-menu-open-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>';
-    echo '<svg class="admin-menu-close-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>';
-    echo '</button>';
-    echo '<div class="admin-menu-panel" data-menu-panel aria-label="Executive Dashboard navigation" hidden>';
-
-    render_admin_topbar_menu_items($menuContext);
-    echo '</div>';
-    echo '</div>';
 }
 
 function render_admin_topbar_menu_items(string $menuContext): void

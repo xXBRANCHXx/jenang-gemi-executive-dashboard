@@ -58,7 +58,7 @@ $sidebarSection = match (true) {
     in_array($requestedView ?? '', ['website', 'site', 'home', 'campaign', 'campaigns', 'landing', 'landing-pages'], true) => 'website',
     default => 'home',
 };
-$dashboardBuildVersion = 'exec3.98.13';
+$dashboardBuildVersion = 'exec3.98.14';
 $adminCssVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.js');
 $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/store-ops.js');
@@ -167,15 +167,6 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
                             </span>
                             <span class="admin-notification-button-copy"><strong>Notifications</strong><small data-billing-notification-summary>No notifications</small></span>
                         </button>
-                        <div class="admin-menu-shell" data-menu-shell>
-                            <button type="button" class="admin-ghost-btn admin-menu-trigger" data-menu-trigger data-menu-alert-trigger aria-expanded="false" aria-label="Open dashboard menu">
-                                <svg class="admin-menu-open-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
-                                <svg class="admin-menu-close-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
-                            </button>
-                            <div class="admin-menu-panel" data-menu-panel aria-label="Executive Dashboard navigation" hidden>
-                                <?php render_admin_dashboard_topbar_menu_items(admin_dashboard_view_menu_context()); ?>
-                            </div>
-                        </div>
                     </div>
                 </header>
 

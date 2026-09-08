@@ -49,7 +49,7 @@ if (rail) {
   sync();
   // Record pages keep their existing URLs and IDs. Search leads to the owning list,
   // where a real record is selected; it never invents an ID or opens an empty record.
-  const aliases = {activation:'hard set big set',connections:'back dash api ingest authorization',ads:'ad view shopee',inventory:'inventory recap stock',customers:'repeat customers',accounting:'cash control profit-loss', 'direct-history':'whatsapp history walk in'};
+  const aliases = {activation:'hard set big set',connections:'back dash api ingest authorization',ads:'ad view shopee',inventory:'inventory recap stock',customers:'repeat customers',accounting:'cash control profit-loss', 'direct-history':'whatsapp history walk in', 'direct-new':'direct orders whatsapp orders walk in'};
   const drawResults = () => {
     const query = input.value.trim().toLowerCase();
     const matches = map.pages.filter(page => `${page.title} ${page.description} ${areaTitle(page.area)} ${aliases[page.id] || ''}`.toLowerCase().includes(query));
@@ -78,13 +78,13 @@ if (rail) {
     links.forEach((a,i) => a.classList.toggle('is-selected', i === resultIndex));
     links[resultIndex].scrollIntoView({block:'nearest'});
   });
-  // Preserve global unpaid-order and low-ad-credit awareness when its area is closed.
+  // Preserve unpaid-order, stock and low-ad-credit awareness when an area is closed.
   const syncAlerts = () => {
-    for (const [area,selector,flag] of [['sales','[data-ed-page="orders"]','has-unpaid-direct-order'],['growth','[data-ed-page="ads"]','is-credit-alert']]) {
+    for (const [area,selector,flag] of [['sales','[data-ed-page="orders"]','has-unpaid-direct-order'],['growth','[data-ed-page="ads"]','is-credit-alert'],['products','[data-ed-page="inventory"]','has-critical-dot']]) {
       rail.querySelector(`[data-ed-area="${area}"]`).classList.toggle('has-alert', rail.querySelector(selector)?.classList.contains(flag) || false);
     }
   };
-  for (const selector of ['[data-ed-page="orders"]','[data-ed-page="ads"]']) {
+  for (const selector of ['[data-ed-page="orders"]','[data-ed-page="ads"]','[data-ed-page="inventory"]']) {
     const source = rail.querySelector(selector);
     if (source) new MutationObserver(syncAlerts).observe(source,{attributes:true,attributeFilter:['class']});
   }

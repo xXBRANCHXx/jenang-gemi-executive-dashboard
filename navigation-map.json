@@ -92,7 +92,6 @@
       "title": "Create direct order",
       "source": "/whatsapp-orders/",
       "description": "Create a WhatsApp or walk-in sale.",
-      "parent": "direct-history",
       "area": "sales",
       "section": "ORDERS",
       "href": "/whatsapp-orders/",

@@ -48,7 +48,7 @@ The stylesheet is screen-only so print/export layouts keep their existing rules.
 Icons are official Lucide 0.468.0 SVGs; the ISC license is included in
 `assets/navigation/LUCIDE-LICENSE`. Existing chart colors and semantics remain.
 New navigation assets use file-mtime cache busting. The dashboard build is
-`exec3.98.13`. No migrations or new environment settings are required.
+`exec3.98.14`. No migrations or new environment settings are required.
 
 ## Verification
 
@@ -81,3 +81,10 @@ Verification on 2026-09-08:
 - Native Accounting's original bar segments, hover tooltip and click handler were
   verified with sample data in both themes. Its original PHP content and JS/CSS
   chart implementations are byte-for-byte unchanged.
+
+The top-right hamburger navigation has been removed from dashboard and shared
+page headers. Every former quick-menu destination is directly listed in the
+sidebar and audited against the old definitions. Create direct order now sits
+under Sales / Orders alongside its history. The existing inventory warning hook
+now targets Stock coverage, with an area dot on Products & stock. Record search,
+the notification bell and the mobile sidebar opener retain their current roles.

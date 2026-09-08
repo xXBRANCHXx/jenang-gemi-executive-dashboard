@@ -32,4 +32,17 @@ nav_expect(str_contains($html, 'data-dashboard-nav-section="ad-view"'), 'Ad aler
 nav_expect(str_contains($html, 'data-dashboard-nav-section="orders"'), 'Unpaid alert hook missing');
 nav_expect(!str_contains($html, 'href="../'), 'Nested page has relative navigation links');
 nav_expect(str_contains($html, 'Executive Dashboard'), 'Wrong workspace name');
+// Every former hamburger destination must now be directly listed in an area.
+foreach (admin_quick_menu_definitions() as $key => $item) {
+    $href = '/' . preg_replace('~^(?:\.\./)+~', '', $item['href']);
+    $mapped = array_values(array_filter($pages, static fn($p) => $p['href'] === $href));
+    nav_expect(count($mapped) === 1 && empty($mapped[0]['parent']), 'Former menu destination missing from sidebar: ' . $key);
+    nav_expect(str_contains($html, 'data-ed-page="' . $mapped[0]['id'] . '"'), 'Former menu destination not rendered: ' . $key);
+}
+nav_expect(str_contains($html, 'data-menu-alert-item="inventory-recap"'), 'Stock alert hook missing from sidebar');
+ob_start(); render_admin_topbar_actions(); $topbar = ob_get_clean();
+nav_expect(!str_contains($topbar, 'data-menu-trigger'), 'Shared hamburger still rendered');
+nav_expect(!str_contains(file_get_contents($root . '/dashboard/index.php'), 'data-menu-trigger'), 'Dashboard hamburger still rendered');
+nav_expect(str_contains($topbar, 'data-billing-notification-toggle'), 'Notifications removed');
+nav_expect(str_contains($topbar, 'data-dashboard-search-open'), 'Record search removed');
 echo "PASS: " . count($pages) . " destinations, $count application routes, " . count($matches[1]) . " embedded views, detail contexts and notification hooks.\n";
