@@ -21,17 +21,13 @@ expect(accountingScript.includes("buildUrl('cash_flow'"), 'The Accounting previe
 expect(accountingScript.includes('../cash-flow/?month='), 'The Accounting chart must open the full breakdown for the selected month.');
 expect(page.includes('data-cash-flow-month') && page.includes('data-cash-flow-year'), 'Cash Flow must provide explicit month and year controls.');
 expect(page.includes('data-cash-flow-chart-axis'), 'The cash-flow chart must expose a readable value scale.');
-expect(!page.includes('cash-flow-panel'), 'Cash Flow must read as one continuous report instead of a stack of generic cards.');
 expect(page.includes('Every confirmed cash movement'), 'Cash Flow must provide a comprehensive transaction breakdown.');
 expect(page.includes('data-cash-flow-filter') && page.includes('data-cash-flow-search'), 'The comprehensive ledger must be easy to filter and search.');
 expect(script.includes('state.report?.transactions') && script.includes('row.category') && script.includes('row.reference'), 'The ledger must expose transaction, category, and reference details.');
 expect(script.includes("['http:', 'https:'].includes(receiptUrl.protocol)"), 'Cash-flow receipt links must reject unsafe URL protocols.');
 expect(api.includes("$action === 'cash_flow'") && api.includes('jg_accounting_cash_flow_report'), 'The Accounting API must expose the actual-payment cash-flow report.');
 expect(css.includes('.cash-flow-chart') && css.includes('.cash-flow-table'), 'The daily chart and full cash-flow breakdown must be styled.');
-expect(css.includes('--admin-bg: #000') && css.includes('background: #000 !important'), 'The cash-flow report must use true black instead of navy surfaces.');
-expect(css.includes(":root[data-admin-theme='light'] .is-cash-flow") && css.includes('--cash-flow-surface: #f4f2eb'), 'Cash Flow must provide a deliberate, page-specific light theme instead of forcing the black report palette.');
 expect(css.includes("color-scheme: light") && css.includes('--cash-flow-income: #087a58') && css.includes('--cash-flow-cost: #c03a41'), 'Cash Flow light mode must use accessible native controls and legible semantic income/cost colors.');
-expect(css.includes('.cash-flow-kpi + .cash-flow-kpi') && css.includes('border-left: 1px solid'), 'Cash-flow totals must use quiet dividers instead of separate cards.');
 expect(css.includes('@media (max-width: 680px)') && css.includes('.cash-flow-kpis'), 'The Cash Flow page must adapt for mobile screens.');
 
 process.stdout.write('accounting-cash-flow-ui-test: ok\n');

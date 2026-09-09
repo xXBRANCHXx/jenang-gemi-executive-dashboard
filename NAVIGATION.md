@@ -48,7 +48,7 @@ The stylesheet is screen-only so print/export layouts keep their existing rules.
 Icons are official Lucide 0.468.0 SVGs; the ISC license is included in
 `assets/navigation/LUCIDE-LICENSE`. Existing chart colors and semantics remain.
 New navigation assets use file-mtime cache busting. The dashboard build is
-`exec3.98.14`. No migrations or new environment settings are required.
+`exec3.98.15`. No migrations or new environment settings are required.
 
 ## Verification
 
@@ -88,3 +88,39 @@ sidebar and audited against the old definitions. Create direct order now sits
 under Sales / Orders alongside its history. The existing inventory warning hook
 now targets Stock coverage, with an area dot on Products & stock. Record search,
 the notification bell and the mobile sidebar opener retain their current roles.
+
+Area icons are native links to their configured `landing` destination: Overview,
+All orders, SKU database, Accounting, Shopee ads, Partner program and Preferences.
+They retain modifier-click/open-in-new-tab behavior and the dashboard's existing
+fast view switching. The submenu shows the destination's area on arrival.
+
+Cash flow keeps its original report, bar chart, tooltip, filters and API queries;
+its presentation now has consistent card insets, section spacing and typography.
+Chart toggle styling retains the existing sliding indicator and keyboard controls,
+with a compact rounded track, teal selected text and horizontal overflow on mobile.
+`tests/executive-refinements-browser.cjs` checks all area landings, native fast view
+switching, toggle pointer/keyboard behavior, indicator alignment, and populated
+Cash flow charts, filters and period queries in the loopback harness.
+
+Sidebar pages use the bundled Lucide icons. Create direct order has a plus icon
+and a restrained teal border/background to distinguish creation from browsing.
+
+The notification bell opens a full-height right-side inbox with All/New filters.
+New rows are highlighted; opening an item or Mark all read updates browser-local
+read markers (IDs/status timestamps only). Read state does not approve anything
+and does not sync between devices. History comes from retained server records,
+including confirmed payments, resolved disputes, reviewed deposits and arranged
+stock orders. `history=1` opts into the expanded feed; default consumers keep the
+pending-only feed. Resolved entries have no mutation controls and link to their
+original partner activity. Existing review/confirmation endpoints and payloads
+remain intact. No schema migration is required.
+
+`tests/notification-history-test.php` executes the feed queries against isolated
+SQLite tables to check pending compatibility, historical records and action flags.
+`tests/notification-inbox-browser.cjs` checks history, read persistence, incoming
+items, original confirmation payloads, focus return, and desktop/mobile layouts.
+
+Verification on 2026-09-09: all 44 existing JavaScript checks, the complete route
+audit, native navigation/chart/Cash flow checks, billing checks, isolated history
+queries and notification inbox browser checks passed. Notification confirmation
+was exercised with intercepted sample requests; no live payment was modified.

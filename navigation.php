@@ -46,7 +46,8 @@ function render_executive_navigation(): void
     echo '<a class="ed-brand" href="/dashboard/?view=overview">' . ed_navigation_icon('dashboard') . '<span>Executive Dashboard</span></a>';
     echo '<div class="ed-navigation-columns"><nav class="ed-areas" aria-label="Business areas">';
     foreach ($map['areas'] as $area) {
-        echo '<button type="button" class="ed-area' . ($area['id'] === $page['area'] ? ' is-selected' : '') . '" data-ed-area="' . $area['id'] . '" aria-label="' . ed_navigation_escape($area['title']) . '" aria-pressed="' . ($area['id'] === $page['area'] ? 'true' : 'false') . '" title="' . ed_navigation_escape($area['title']) . '">' . ed_navigation_icon($area['icon']) . '<span>' . ed_navigation_escape($area['title']) . '</span></button>';
+        $landing = $pages[$area['landing']];
+        echo '<a class="ed-area' . ($area['id'] === $page['area'] ? ' is-selected' : '') . '" href="' . ed_navigation_escape($landing['href']) . '" data-ed-area="' . $area['id'] . '" aria-label="' . ed_navigation_escape($area['title']) . '"' . ($area['id'] === $page['area'] ? ' aria-current="location"' : '') . (!empty($landing['view']) ? ' data-dashboard-view-link="' . ed_navigation_escape($landing['view']) . '"' : '') . ' title="' . ed_navigation_escape($area['title']) . '">' . ed_navigation_icon($area['icon']) . '<span>' . ed_navigation_escape($area['title']) . '</span></a>';
     }
     echo '</nav><div class="ed-pages"><button type="button" class="ed-search-open" data-ed-search-open>' . ed_navigation_icon('search') . '<span>Find a page</span><kbd>⌘ /</kbd></button>';
     foreach ($map['areas'] as $area) {
@@ -59,7 +60,7 @@ function render_executive_navigation(): void
                 echo '<h3>' . ed_navigation_escape($section) . '</h3>';
             }
             $active = $root['id'] === $item['id'];
-            echo '<a class="ed-page' . ($active ? ' is-current' : '') . '" href="' . ed_navigation_escape($item['href']) . '" data-ed-page="' . $item['id'] . '"' . ($active ? ' aria-current="page"' : '') . (!empty($item['view']) ? ' data-dashboard-view-link="' . ed_navigation_escape($item['view']) . '"' : '') . ($item['id'] === 'orders' ? ' data-dashboard-nav-section="orders" data-nav-label="All orders"' : ($item['id'] === 'ads' ? ' data-dashboard-nav-section="ad-view"' : '')) . ($item['id'] === 'inventory' ? ' data-menu-alert-item="inventory-recap"' : '') . '><span>' . ed_navigation_escape($item['title']) . '</span>' . ($item['id'] === 'orders' ? '<i class="admin-rail-unpaid-dot" aria-hidden="true"></i>' : '') . '</a>';
+            echo '<a class="ed-page' . (($item['kind'] ?? '') === 'action' ? ' is-action' : '') . ($active ? ' is-current' : '') . '" href="' . ed_navigation_escape($item['href']) . '" data-ed-page="' . $item['id'] . '"' . ($active ? ' aria-current="page"' : '') . (!empty($item['view']) ? ' data-dashboard-view-link="' . ed_navigation_escape($item['view']) . '"' : '') . ($item['id'] === 'orders' ? ' data-dashboard-nav-section="orders" data-nav-label="All orders"' : ($item['id'] === 'ads' ? ' data-dashboard-nav-section="ad-view"' : '')) . ($item['id'] === 'inventory' ? ' data-menu-alert-item="inventory-recap"' : '') . '>' . ed_navigation_icon($item['icon'] ?? 'arrow') . '<span>' . ed_navigation_escape($item['title']) . '</span>' . ($item['id'] === 'orders' ? '<i class="admin-rail-unpaid-dot" aria-hidden="true"></i>' : '') . '</a>';
         }
         echo '</nav>';
     }

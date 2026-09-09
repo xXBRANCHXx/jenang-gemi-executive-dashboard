@@ -15,11 +15,11 @@ if (rail) {
   const showArea = id => {
     rail.querySelectorAll('[data-ed-area]').forEach(button => {
       button.classList.toggle('is-selected', button.dataset.edArea === id);
-      button.setAttribute('aria-pressed', String(button.dataset.edArea === id));
+      if (button.dataset.edArea === id) button.setAttribute('aria-current', 'location');
+      else button.removeAttribute('aria-current');
     });
     rail.querySelectorAll('[data-ed-section]').forEach(section => section.hidden = section.dataset.edSection !== id);
   };
-  rail.querySelectorAll('[data-ed-area]').forEach(button => button.addEventListener('click', () => showArea(button.dataset.edArea)));
   const host = document.querySelector('.admin-shell-main') || (document.body.classList.contains('ed-standalone') ? document.querySelector('main') : null);
   const breadcrumb = document.createElement('nav');
   breadcrumb.className = 'ed-breadcrumb';

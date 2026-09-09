@@ -3,37 +3,44 @@
     {
       "id": "overview",
       "title": "Overview",
-      "icon": "home"
+      "icon": "home",
+      "landing": "overview"
     },
     {
       "id": "sales",
       "title": "Sales",
-      "icon": "orders"
+      "icon": "orders",
+      "landing": "orders"
     },
     {
       "id": "products",
       "title": "Products & stock",
-      "icon": "box"
+      "icon": "box",
+      "landing": "catalog"
     },
     {
       "id": "finance",
       "title": "Finance",
-      "icon": "wallet"
+      "icon": "wallet",
+      "landing": "accounting"
     },
     {
       "id": "growth",
       "title": "Growth",
-      "icon": "chart"
+      "icon": "chart",
+      "landing": "ads"
     },
     {
       "id": "partners",
       "title": "Partners",
-      "icon": "users"
+      "icon": "users",
+      "landing": "partners"
     },
     {
       "id": "settings",
       "title": "Settings",
-      "icon": "settings"
+      "icon": "settings",
+      "landing": "preferences"
     }
   ],
   "pages": [
@@ -45,7 +52,8 @@
       "area": "overview",
       "section": "WORKSPACE",
       "href": "/dashboard/?view=overview",
-      "view": "overview"
+      "view": "overview",
+      "icon": "dashboard"
     },
     {
       "id": "daily",
@@ -55,7 +63,8 @@
       "area": "overview",
       "section": "WORKSPACE",
       "href": "/dashboard/?view=daily",
-      "view": "daily"
+      "view": "daily",
+      "icon": "calendar"
     },
     {
       "id": "context",
@@ -65,7 +74,8 @@
       "area": "overview",
       "section": "WORKSPACE",
       "href": "/dashboard/?view=context",
-      "view": "context"
+      "view": "context",
+      "icon": "workflow"
     },
     {
       "id": "orders",
@@ -75,7 +85,8 @@
       "area": "sales",
       "section": "ORDERS",
       "href": "/dashboard/?view=orders",
-      "view": "orders"
+      "view": "orders",
+      "icon": "orders"
     },
     {
       "id": "direct-history",
@@ -85,7 +96,8 @@
       "area": "sales",
       "section": "ORDERS",
       "href": "/whatsapp-order-history/",
-      "view": null
+      "view": null,
+      "icon": "clock"
     },
     {
       "id": "direct-new",
@@ -95,7 +107,9 @@
       "area": "sales",
       "section": "ORDERS",
       "href": "/whatsapp-orders/",
-      "view": null
+      "view": null,
+      "icon": "plus",
+      "kind": "action"
     },
     {
       "id": "order",
@@ -127,7 +141,8 @@
       "area": "sales",
       "section": "FULFILLMENT",
       "href": "/dashboard/?view=store-ops",
-      "view": "store-ops"
+      "view": "store-ops",
+      "icon": "box"
     },
     {
       "id": "shipments",
@@ -137,7 +152,8 @@
       "area": "sales",
       "section": "FULFILLMENT",
       "href": "/dashboard/?view=shipment-arrangement",
-      "view": "shipment-arrangement"
+      "view": "shipment-arrangement",
+      "icon": "truck"
     },
     {
       "id": "customers",
@@ -147,7 +163,8 @@
       "area": "sales",
       "section": "CUSTOMERS",
       "href": "/customer-profiles/",
-      "view": null
+      "view": null,
+      "icon": "users"
     },
     {
       "id": "catalog",
@@ -157,7 +174,8 @@
       "area": "products",
       "section": "CATALOG",
       "href": "/sku-db/",
-      "view": null
+      "view": null,
+      "icon": "box"
     },
     {
       "id": "sku-new",
@@ -178,7 +196,8 @@
       "area": "products",
       "section": "CATALOG",
       "href": "/product-costs/",
-      "view": null
+      "view": null,
+      "icon": "credit"
     },
     {
       "id": "inventory",
@@ -188,7 +207,8 @@
       "area": "products",
       "section": "INVENTORY",
       "href": "/dashboard/?view=inventory-recap",
-      "view": "inventory-recap"
+      "view": "inventory-recap",
+      "icon": "chart"
     },
     {
       "id": "purchase",
@@ -198,7 +218,8 @@
       "area": "products",
       "section": "INVENTORY",
       "href": "/dashboard/?view=purchase-order",
-      "view": "purchase-order"
+      "view": "purchase-order",
+      "icon": "plus"
     },
     {
       "id": "po-history",
@@ -208,7 +229,8 @@
       "area": "products",
       "section": "INVENTORY",
       "href": "/dashboard/?view=po-history",
-      "view": "po-history"
+      "view": "po-history",
+      "icon": "clock"
     },
     {
       "id": "po-detail",
@@ -229,7 +251,8 @@
       "area": "products",
       "section": "REPORTS",
       "href": "/product-breakdowns/",
-      "view": null
+      "view": null,
+      "icon": "trending"
     },
     {
       "id": "analytics",
@@ -261,7 +284,8 @@
       "area": "finance",
       "section": "MONEY MANAGEMENT",
       "href": "/profit-loss/",
-      "view": null
+      "view": null,
+      "icon": "wallet"
     },
     {
       "id": "wallet",
@@ -271,7 +295,8 @@
       "area": "finance",
       "section": "MONEY MANAGEMENT",
       "href": "/dashboard/?view=wallet",
-      "view": "wallet"
+      "view": "wallet",
+      "icon": "credit"
     },
     {
       "id": "cash-flow",
@@ -281,7 +306,8 @@
       "area": "finance",
       "section": "REPORTS",
       "href": "/cash-flow/",
-      "view": null
+      "view": null,
+      "icon": "workflow"
     },
     {
       "id": "pnl",
@@ -291,7 +317,8 @@
       "area": "finance",
       "section": "REPORTS",
       "href": "/profit-and-loss/",
-      "view": null
+      "view": null,
+      "icon": "chart"
     },
     {
       "id": "expense-settings",
@@ -301,7 +328,8 @@
       "area": "finance",
       "section": "CONFIGURATION & GUIDES",
       "href": "/profit-and-loss/expense-settings/",
-      "view": null
+      "view": null,
+      "icon": "settings"
     },
     {
       "id": "category",
@@ -322,7 +350,8 @@
       "area": "finance",
       "section": "CONFIGURATION & GUIDES",
       "href": "/accounting-flow/",
-      "view": null
+      "view": null,
+      "icon": "help"
     },
     {
       "id": "ads",
@@ -332,7 +361,8 @@
       "area": "growth",
       "section": "PERFORMANCE",
       "href": "/dashboard/?view=ad-view",
-      "view": "ad-view"
+      "view": "ad-view",
+      "icon": "megaphone"
     },
     {
       "id": "campaigns",
@@ -342,7 +372,8 @@
       "area": "growth",
       "section": "PERFORMANCE",
       "href": "/dashboard/?view=campaigns",
-      "view": "home"
+      "view": "home",
+      "icon": "target"
     },
     {
       "id": "website",
@@ -352,7 +383,8 @@
       "area": "growth",
       "section": "WEBSITES & CONTENT",
       "href": "/dashboard/?view=website",
-      "view": "website"
+      "view": "website",
+      "icon": "globe"
     },
     {
       "id": "blog",
@@ -362,7 +394,8 @@
       "area": "growth",
       "section": "WEBSITES & CONTENT",
       "href": "/blog-builder/",
-      "view": null
+      "view": null,
+      "icon": "orders"
     },
     {
       "id": "blog-preview",
@@ -383,7 +416,8 @@
       "area": "growth",
       "section": "AFFILIATES",
       "href": "/affiliate-program/",
-      "view": null
+      "view": null,
+      "icon": "trending"
     },
     {
       "id": "affiliate-profiles",
@@ -393,7 +427,8 @@
       "area": "growth",
       "section": "AFFILIATES",
       "href": "/affiliate-profiles/",
-      "view": null
+      "view": null,
+      "icon": "users"
     },
     {
       "id": "affiliate-detail",
@@ -414,7 +449,8 @@
       "area": "partners",
       "section": "PARTNER PROGRAM",
       "href": "/partner-program/",
-      "view": null
+      "view": null,
+      "icon": "dashboard"
     },
     {
       "id": "partner-profiles",
@@ -424,7 +460,8 @@
       "area": "partners",
       "section": "PARTNER PROGRAM",
       "href": "/partner-profiles/",
-      "view": null
+      "view": null,
+      "icon": "users"
     },
     {
       "id": "partner-detail",
@@ -467,7 +504,8 @@
       "area": "settings",
       "section": "PREFERENCES",
       "href": "/dashboard/?view=settings",
-      "view": "settings"
+      "view": "settings",
+      "icon": "settings"
     },
     {
       "id": "connections",
@@ -477,7 +515,8 @@
       "area": "settings",
       "section": "CONNECTIONS & OPERATIONS",
       "href": "/back-dash/",
-      "view": null
+      "view": null,
+      "icon": "workflow"
     },
     {
       "id": "api",
@@ -487,7 +526,8 @@
       "area": "settings",
       "section": "CONNECTIONS & OPERATIONS",
       "href": "/api-health/",
-      "view": null
+      "view": null,
+      "icon": "workflow"
     },
     {
       "id": "activation",
@@ -497,7 +537,8 @@
       "area": "settings",
       "section": "CONNECTIONS & OPERATIONS",
       "href": "/dashboard/?view=hard-set",
-      "view": "hard-set"
+      "view": "hard-set",
+      "icon": "check"
     }
   ],
   "utilities": [

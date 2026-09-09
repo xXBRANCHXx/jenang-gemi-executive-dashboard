@@ -11,7 +11,25 @@ document.addEventListener('DOMContentLoaded', () => {
   const back = document.querySelector('[data-billing-notification-back]');
   const backdrop = document.querySelector('[data-billing-notification-backdrop]');
   const mode = document.querySelector('[data-billing-notification-mode]');
-  const state = { open: false, loading: false, events: [], selectedId: '', feedback: null };
+  const state = { open: false, loading: false, events: [], selectedId: '', feedback: null, filter: 'all' };
+  // Store read markers only, never payment proofs or notification payloads.
+  const readKey = 'executive-notifications-read-v1';
+  let readMarkers = {};
+  try { const stored = JSON.parse(localStorage.getItem(readKey) || '{}'); if (stored && typeof stored === 'object' && !Array.isArray(stored)) readMarkers = stored; } catch (_) {}
+  const readVersion = event => `${event.status || 'pending'}:${event.updated_at || event.created_at || ''}`;
+  const isNew = event => Object.prototype.hasOwnProperty.call(readMarkers, event.id)
+    ? readMarkers[event.id] !== readVersion(event) : event.action_required !== false;
+  const markRead = events => {
+    events.forEach(event => { readMarkers[event.id] = readVersion(event); });
+    try { localStorage.setItem(readKey, JSON.stringify(readMarkers)); } catch (_) {}
+  };
+  const visibleEvents = () => state.filter === 'new' ? state.events.filter(isNew) : state.events;
+  const toolbar = document.createElement('div');
+  toolbar.className = 'ed-notification-tools';
+  toolbar.innerHTML = '<div role="group" aria-label="Notification filter"><button type="button" data-notification-filter="all" aria-pressed="true">All</button><button type="button" data-notification-filter="new" aria-pressed="false">New <span data-notification-new-count>0</span></button></div><button type="button" data-notification-mark-read>Mark all read</button>';
+  list.before(toolbar);
+  drawer.inert = true;
+  drawer.setAttribute('aria-modal', 'true');
 
   const escapeHtml = (value) => String(value ?? '')
     .replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
@@ -33,7 +51,9 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const request = async (options = {}) => {
-    const response = await fetch(options.url || `${endpoint}?action=notifications&_ts=${Date.now()}`, {
+    const url = new URL(options.url || `${endpoint}?action=notifications&_ts=${Date.now()}`, window.location.href);
+    if (url.pathname === '/api/partner-billing/') url.searchParams.set('history', '1');
+    const response = await fetch(url, {
       method: options.method || 'GET',
       credentials: 'same-origin',
       cache: 'no-store',
@@ -65,6 +85,7 @@ document.addEventListener('DOMContentLoaded', () => {
     return `${event.partner_name || 'Partner'} needs review`;
   };
   const eventSubtitle = (event) => {
+    if (event.action_required === false) return `Completed · ${String(event.status || 'reviewed').replaceAll('_', ' ')}`;
     if (event.type === 'payment') return 'Check proof of payment';
     if (event.type === 'dispute') return event.dispute_type === 'price' ? 'Review the proposed product prices' : 'Review the claimed paid orders';
     if (event.type === 'balance_deposit') return event.status === 'investigating' ? 'Investigation in progress · review corrected amount' : 'Verify proof and approve the balance';
@@ -72,28 +93,28 @@ document.addEventListener('DOMContentLoaded', () => {
     return 'Open review';
   };
 
-  const eventVersion = (event) => JSON.stringify(event);
+  const eventVersion = (event) => JSON.stringify(event) + (event ? String(isNew(event)) : '');
   const listRowMarkup = (event, index) => `
-      <article class="admin-billing-notification-row is-${escapeHtml(event.type)}" style="--billing-row-index:${index}" data-billing-event-id="${escapeHtml(event.id)}">
+      <article class="admin-billing-notification-row is-${escapeHtml(event.type)}${isNew(event) ? ' is-new' : ''}" style="--billing-row-index:${index}" data-billing-event-id="${escapeHtml(event.id)}">
         <button type="button" class="admin-billing-notification-main" data-billing-select="${escapeHtml(event.id)}">
           ${avatarMarkup(event)}
           <span class="admin-billing-notification-copy">
-            <strong>${escapeHtml(eventTitle(event))}</strong>
+            <strong>${escapeHtml(eventTitle(event))}${isNew(event) ? '<span class="ed-notification-new">New</span>' : ''}</strong>
             <small>${escapeHtml(eventSubtitle(event))}</small>
             <em><span>${escapeHtml(event.type === 'dispute' && event.dispute_type === 'price' ? `${money(event.amount)} → ${money((event.items || []).reduce((sum, item) => sum + Number(item.proposed_amount || 0), 0))}` : money(event.amount))}</span> · <span data-billing-relative-time>${escapeHtml(relativeTime(event.created_at))}</span></em>
           </span>
           <svg class="admin-billing-row-arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg>
         </button>
-        ${event.type === 'dispute' ? `<div class="admin-billing-quick-actions"><button type="button" data-billing-action="accept_dispute" data-record-id="${Number(event.record_id)}">${event.dispute_type === 'price' ? 'Accept proposed prices' : 'Accept'}</button><button type="button" data-billing-select="${escapeHtml(event.id)}">Investigate</button></div>` : ''}
-        ${event.type === 'balance_deposit' ? `<div class="admin-billing-quick-actions"><button type="button" data-stock-action="approve_deposit" data-record-id="${Number(event.record_id)}">Approve</button><a href="${escapeHtml(event.detail_url)}">Investigate</a></div>` : ''}
+        ${event.action_required !== false && event.type === 'dispute' ? `<div class="admin-billing-quick-actions"><button type="button" data-billing-action="accept_dispute" data-record-id="${Number(event.record_id)}">${event.dispute_type === 'price' ? 'Accept proposed prices' : 'Accept'}</button><button type="button" data-billing-select="${escapeHtml(event.id)}">Investigate</button></div>` : ''}
+        ${event.action_required !== false && event.type === 'balance_deposit' ? `<div class="admin-billing-quick-actions"><button type="button" data-stock-action="approve_deposit" data-record-id="${Number(event.record_id)}">Approve</button><a href="${escapeHtml(event.detail_url)}">Investigate</a></div>` : ''}
         ${event.type === 'stock_order' ? `<div class="admin-billing-quick-actions"><a href="${escapeHtml(event.detail_url)}">Open partner activity</a></div>` : ''}
       </article>`;
 
   const listMarkup = () => {
-    if (!state.events.length) {
-      return `<div class="admin-notification-empty admin-billing-empty"><span>✓</span><strong>All caught up</strong><p>No partner payments, deposits, disputes, or stock orders need review.</p></div>`;
+    if (!visibleEvents().length) {
+      return `<div class="admin-notification-empty admin-billing-empty"><span>✓</span><strong>All caught up</strong><p>${state.filter === 'new' ? 'No new notifications. Older items are available in All.' : 'No notifications yet.'}</p></div>`;
     }
-    return state.events.map(listRowMarkup).join('');
+    return visibleEvents().map(listRowMarkup).join('');
   };
 
   const paymentDetail = (event) => {
@@ -163,6 +184,8 @@ document.addEventListener('DOMContentLoaded', () => {
     return `<article class="admin-billing-detail admin-stock-notification-detail" data-billing-record="${Number(event.record_id)}"><div class="admin-billing-proof-head"><div>${avatarMarkup(event)}<span><small>Balance request</small><strong>${escapeHtml(event.partner_name)}</strong><em>${escapeHtml(shortDate(event.created_at))}</em></span></div></div><div class="admin-billing-proof-frame is-${isPdf ? 'pdf' : 'image'}">${isPdf ? `<object data="${escapeHtml(proof.url)}" type="application/pdf"><a href="${escapeHtml(proof.url)}" target="_blank" rel="noopener">Open proof</a></object>` : `<img src="${escapeHtml(proof.url)}" alt="Payment proof from ${escapeHtml(event.partner_name)}">`}</div><form class="admin-stock-deposit-review" data-stock-deposit-form><label><span>Amount to credit</span><span class="admin-billing-price-input"><em>Rp</em><input type="number" name="amount" min="1" max="1000000000000" step="0.01" value="${Number(event.amount || 0)}" required></span></label><label><span>Review note</span><textarea name="note" maxlength="1000" placeholder="Optional note or reason for a correction"></textarea></label><p class="admin-billing-detail-error" data-billing-detail-error hidden></p><div class="admin-billing-investigate-actions"><button type="button" class="is-accept" data-stock-action="approve_deposit" data-record-id="${Number(event.record_id)}">Approve balance</button><button type="button" data-stock-action="investigate_deposit" data-record-id="${Number(event.record_id)}">Save investigation</button><button type="button" class="is-reject" data-stock-action="reject_deposit" data-record-id="${Number(event.record_id)}">Reject</button></div></form><a class="admin-ghost-btn admin-link-btn" href="${escapeHtml(event.detail_url)}">Open partner activity</a></article>`;
   };
 
+  const historyDetail = event => `<article class="admin-billing-detail ed-notification-history"><h3>${escapeHtml(eventTitle(event))}</h3><p>${escapeHtml(eventSubtitle(event))}</p><strong>${escapeHtml(money(event.amount))}</strong><p>${escapeHtml(shortDate(event.updated_at || event.created_at))}</p>${event.proof?.url ? `<a class="admin-ghost-btn" href="${escapeHtml(event.proof.url)}" target="_blank" rel="noopener">View payment proof</a>` : ''}<a class="admin-primary-btn admin-link-btn" href="${escapeHtml(event.detail_url || '/partner-profiles/')}">Open partner activity</a></article>`;
+
   const feedbackMarkup = () => `<div class="admin-billing-feedback"><span>✓</span><strong>${escapeHtml(state.feedback?.title || 'Review complete')}</strong><p>${escapeHtml(state.feedback?.message || 'The record was updated.')}</p></div>`;
 
   const bindAvatarFallbacks = () => {
@@ -181,31 +204,36 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const renderChrome = () => {
     const selected = state.events.find((event) => event.id === state.selectedId) || null;
+    const unread = state.events.filter(isNew).length;
     if (count instanceof HTMLElement) {
-      count.hidden = state.events.length === 0;
-      count.textContent = state.events.length > 99 ? '99+' : String(state.events.length);
+      count.hidden = unread === 0;
+      count.textContent = unread > 99 ? '99+' : String(unread);
     }
+    toolbar.hidden = Boolean(selected || state.feedback);
+    toolbar.querySelector('[data-notification-new-count]').textContent = String(unread);
+    toolbar.querySelector('[data-notification-mark-read]').disabled = unread === 0;
+    toolbar.querySelectorAll('[data-notification-filter]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.notificationFilter === state.filter)));
     if (summary instanceof HTMLElement) summary.textContent = state.events.length ? `${state.events.length} notification${state.events.length === 1 ? '' : 's'}` : 'No notifications';
     if (back instanceof HTMLButtonElement) back.hidden = !selected && !state.feedback;
     if (mode instanceof HTMLElement) mode.textContent = selected
       ? eventSubtitle(selected)
-      : 'Partner activity requiring attention';
+      : `${unread} new · ${state.events.filter(event => event.action_required !== false).length} awaiting review`;
   };
 
   const reconcileList = () => {
     renderChrome();
-    if (!state.events.length) {
+    if (!visibleEvents().length) {
       if (!list.querySelector('.admin-billing-empty') || list.children.length !== 1) list.innerHTML = listMarkup();
       return;
     }
 
     list.querySelectorAll(':scope > :not([data-billing-event-id])').forEach((node) => node.remove());
-    const retainedIds = new Set(state.events.map((event) => event.id));
+    const retainedIds = new Set(visibleEvents().map((event) => event.id));
     list.querySelectorAll(':scope > [data-billing-event-id]').forEach((node) => {
       if (!retainedIds.has(node.getAttribute('data-billing-event-id') || '')) node.remove();
     });
 
-    state.events.forEach((event, index) => {
+    visibleEvents().forEach((event, index) => {
       let row = Array.from(list.children).find((node) => node.getAttribute('data-billing-event-id') === event.id);
       const version = eventVersion(event);
       if (!(row instanceof HTMLElement) || row.dataset.billingEventVersion !== version) {
@@ -231,7 +259,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const selected = state.events.find((event) => event.id === state.selectedId) || null;
     renderChrome();
     if (state.feedback) list.innerHTML = feedbackMarkup();
-    else if (selected) list.innerHTML = selected.type === 'payment' ? paymentDetail(selected) : (selected.type === 'dispute' ? disputeDetail(selected) : stockDetail(selected));
+    else if (selected) list.innerHTML = selected.action_required === false ? historyDetail(selected) : selected.type === 'payment' ? paymentDetail(selected) : (selected.type === 'dispute' ? disputeDetail(selected) : stockDetail(selected));
     else {
       list.innerHTML = listMarkup();
       state.events.forEach((event) => {
@@ -268,6 +296,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const setOpen = (open) => {
     state.open = open;
+    drawer.inert = !open;
     drawer.classList.toggle('is-open', open);
     drawer.setAttribute('aria-hidden', open ? 'false' : 'true');
     toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
@@ -276,7 +305,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (open) {
       load({ silent: Boolean(state.events.length) });
       window.setTimeout(() => close?.focus(), 80);
-    } else if (drawer.contains(document.activeElement)) toggle.focus();
+    } else toggle.focus();
   };
 
   const showError = (message) => {
@@ -338,6 +367,19 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
+  toolbar.addEventListener('click', event => {
+    const filter = event.target.closest('[data-notification-filter]');
+    if (filter) state.filter = filter.dataset.notificationFilter;
+    else if (event.target.closest('[data-notification-mark-read]')) markRead(state.events);
+    else return;
+    render();
+  });
+  window.addEventListener('storage', event => {
+    if (event.key !== readKey) return;
+    try { readMarkers = JSON.parse(event.newValue || '{}') || {}; } catch (_) { return; }
+    if (!state.selectedId && !state.feedback) reconcileList(); else renderChrome();
+  });
+
   toggle.addEventListener('click', () => setOpen(!state.open));
   close?.addEventListener('click', () => setOpen(false));
   backdrop?.addEventListener('click', () => setOpen(false));
@@ -351,6 +393,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (target.hasAttribute('data-billing-choose-evidence')) { list.querySelector('[data-billing-evidence]')?.click(); return; }
     if (target.hasAttribute('data-billing-select')) {
       state.selectedId = target.dataset.billingSelect || '';
+      const selected = state.events.find(item => item.id === state.selectedId);
+      if (selected) markRead([selected]);
       state.feedback = null;
       render();
       return;
@@ -419,6 +463,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && state.open) setOpen(false);
+    if (event.key === 'Tab' && state.open) {
+      const controls = [...drawer.querySelectorAll('button:not(:disabled),a[href],input,select,textarea')].filter(el => !el.closest('[hidden]') && el.getClientRects().length);
+      const first = controls[0], last = controls[controls.length - 1];
+      if (!drawer.contains(document.activeElement)) { event.preventDefault(); first?.focus(); }
+      else if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+    }
   });
 
   load({ silent: true });

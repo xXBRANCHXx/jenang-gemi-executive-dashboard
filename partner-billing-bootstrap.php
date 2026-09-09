@@ -777,13 +777,13 @@ function jg_admin_partner_billing_items(PDO $pdo, string $billId, ?int $disputeI
     }, $stmt->fetchAll());
 }
 
-function jg_admin_partner_billing_notifications(string $endpoint): array
+function jg_admin_partner_billing_notifications(string $endpoint, bool $includeHistory = false): array
 {
     $pdo = jg_admin_partner_billing_db();
     jg_admin_partner_billing_sync($pdo);
     $events = [];
     $paymentStmt = $pdo->query(
-        'SELECT p.id, p.bill_id, p.partner_code, p.amount, p.proof_file_id, p.submitted_at,
+        'SELECT p.id, p.bill_id, p.partner_code, p.amount, p.proof_file_id, p.submitted_at, p.status, p.confirmed_at,
                 f.original_name, f.mime_type, f.size_bytes,
                 b.period_type, b.period_start, b.period_end, b.due_date, b.total_amount,
                 COALESCE(NULLIF(pr.name, ""), p.partner_code) AS partner_name
@@ -791,7 +791,7 @@ function jg_admin_partner_billing_notifications(string $endpoint): array
          JOIN partner_weekly_bills b ON b.bill_id = p.bill_id
          JOIN partner_weekly_bill_files f ON f.id = p.proof_file_id
          LEFT JOIN partner_profiles pr ON pr.code = p.partner_code
-         WHERE p.status = "pending"
+         WHERE ' . ($includeHistory ? '1 = 1' : 'p.status = "pending"') . '
          ORDER BY p.submitted_at DESC'
     );
     foreach ($paymentStmt->fetchAll() as $row) {
@@ -799,6 +799,10 @@ function jg_admin_partner_billing_notifications(string $endpoint): array
             'id' => 'payment:' . (int) $row['id'],
             'record_id' => (int) $row['id'],
             'type' => 'payment',
+            'status' => (string) $row['status'],
+            'action_required' => $row['status'] === 'pending',
+            'updated_at' => (string) ($row['confirmed_at'] ?? $row['submitted_at']),
+            'detail_url' => '/partner-sales/?code=' . rawurlencode((string) $row['partner_code']),
             'partner_code' => (string) $row['partner_code'],
             'partner_name' => (string) $row['partner_name'],
             'bill_id' => (string) $row['bill_id'],
@@ -818,13 +822,13 @@ function jg_admin_partner_billing_notifications(string $endpoint): array
         ];
     }
     $disputeStmt = $pdo->query(
-        'SELECT d.id, d.dispute_key, d.bill_id, d.partner_code, d.dispute_type, d.reason, d.created_at,
+        'SELECT d.id, d.dispute_key, d.bill_id, d.partner_code, d.dispute_type, d.reason, d.created_at, d.status, d.resolved_at,
                 b.period_type, b.period_start, b.period_end, b.total_amount,
                 COALESCE(NULLIF(pr.name, ""), d.partner_code) AS partner_name
          FROM partner_weekly_bill_disputes d
          JOIN partner_weekly_bills b ON b.bill_id = d.bill_id
          LEFT JOIN partner_profiles pr ON pr.code = d.partner_code
-         WHERE d.status = "pending"
+         WHERE ' . ($includeHistory ? '1 = 1' : 'd.status = "pending"') . '
          ORDER BY d.created_at DESC'
     );
     foreach ($disputeStmt->fetchAll() as $row) {
@@ -833,6 +837,10 @@ function jg_admin_partner_billing_notifications(string $endpoint): array
             'id' => 'dispute:' . (int) $row['id'],
             'record_id' => (int) $row['id'],
             'type' => 'dispute',
+            'status' => (string) $row['status'],
+            'action_required' => $row['status'] === 'pending',
+            'updated_at' => (string) ($row['resolved_at'] ?? $row['created_at']),
+            'detail_url' => '/partner-sales/?code=' . rawurlencode((string) $row['partner_code']),
             'dispute_type' => (string) ($row['dispute_type'] ?? 'paid'),
             'partner_code' => (string) $row['partner_code'],
             'partner_name' => (string) $row['partner_name'],

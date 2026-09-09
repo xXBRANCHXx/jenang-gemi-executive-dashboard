@@ -24,6 +24,10 @@ foreach ($pages as $page) {
     $_SERVER['REQUEST_URI'] = $page['href']; parse_str(parse_url($page['href'], PHP_URL_QUERY) ?? '', $_GET);
     nav_expect(ed_navigation_current() === $page['id'], 'Wrong current page: ' . $page['id']);
 }
+foreach ($map['areas'] as $area) {
+    nav_expect(isset($pages[$area['landing']]), 'Missing area landing: ' . $area['id']);
+    nav_expect($pages[$area['landing']]['area'] === $area['id'], 'Landing outside its area');
+}
 $_SERVER['REQUEST_URI'] = '/dashboard/product-analytics/?product=syrup&flavor=original'; $_GET = ['product'=>'syrup'];
 ob_start(); render_admin_sidebar(); $html = ob_get_clean();
 nav_expect(str_contains($html, 'href="/profit-loss/"'), 'Accounting missing');
@@ -31,6 +35,10 @@ nav_expect(str_contains($html, 'data-ed-current="analytics"'), 'Detail context m
 nav_expect(str_contains($html, 'data-dashboard-nav-section="ad-view"'), 'Ad alert hook missing');
 nav_expect(str_contains($html, 'data-dashboard-nav-section="orders"'), 'Unpaid alert hook missing');
 nav_expect(!str_contains($html, 'href="../'), 'Nested page has relative navigation links');
+foreach ($map['areas'] as $area) {
+    $href = $pages[$area['landing']]['href'];
+    nav_expect((bool) preg_match('~<a[^>]*href="' . preg_quote($href, '~') . '"[^>]*data-ed-area="' . $area['id'] . '"~', $html), 'Area icon must be a native landing link: ' . $area['id']);
+}
 nav_expect(str_contains($html, 'Executive Dashboard'), 'Wrong workspace name');
 // Every former hamburger destination must now be directly listed in an area.
 foreach (admin_quick_menu_definitions() as $key => $item) {
