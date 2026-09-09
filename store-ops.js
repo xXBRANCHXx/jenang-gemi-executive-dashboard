@@ -24,6 +24,9 @@ document.addEventListener('DOMContentLoaded', () => {
   };
   let statusFilter = '';
   let employeesRendered = false;
+  let requestVersion = 0;
+  let loading = false;
+  let appliedFilters = null;
 
   const escapeHtml = (value) => String(value ?? '')
     .replace(/&/g, '&amp;')
@@ -81,15 +84,17 @@ document.addEventListener('DOMContentLoaded', () => {
     return params;
   };
 
-  const fetchStoreOps = async (extra = {}) => {
-    const params = buildParams(extra);
+  const fetchStoreOps = async (extra = {}, savedParams = null) => {
+    const params = savedParams ? new URLSearchParams(savedParams) : buildParams();
+    Object.entries(extra).forEach(([key, value]) => params.set(key, value));
     const response = await fetch(`${endpoint}?${params.toString()}`, {
       cache: 'no-store',
+      signal: AbortSignal.timeout(15000),
       credentials: 'same-origin',
       headers: { Accept: 'application/json' }
     });
     const payload = await response.json().catch(() => ({}));
-    if (!response.ok || payload.ok === false) {
+    if (!response.ok || payload.ok !== true) {
       throw new Error(payload.error || 'Unable to load Store Ops activity.');
     }
     return payload;
@@ -111,8 +116,8 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const renderEmployees = (employees = []) => {
-    if (employeesRendered || !(refs.employees instanceof HTMLSelectElement)) return;
-    const selectedFromUrl = new Set((new URLSearchParams(window.location.search).get('employees') || '').split(',').filter(Boolean));
+    if (!(refs.employees instanceof HTMLSelectElement) || document.querySelector('.admin-store-ops-employee-picker[open]')) return;
+    const selectedFromUrl = new Set(employeesRendered ? selectedEmployees() : (new URLSearchParams(window.location.search).get('employees') || '').split(',').filter(Boolean));
     refs.employees.innerHTML = employees
       .filter((employee) => employee.id && employee.display_name)
       .map((employee) => `<option value="${escapeHtml(employee.id)}" ${selectedFromUrl.has(employee.id) ? 'selected' : ''}>${escapeHtml(employee.display_name)}${employee.active ? '' : ' (inactive)'}</option>`)
@@ -178,16 +183,48 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   };
 
-  const load = async () => {
-    if (refs.status) refs.status.textContent = 'Loading';
-    const payload = await fetchStoreOps();
-    if (refs.dateFrom instanceof HTMLInputElement && !refs.dateFrom.value) refs.dateFrom.value = payload.filters?.date_from || '';
-    if (refs.dateTo instanceof HTMLInputElement && !refs.dateTo.value) refs.dateTo.value = payload.filters?.date_to || '';
-    renderMetrics(payload.metrics || {});
-    renderEmployees(payload.employees || []);
-    renderOrders(payload.orders || []);
-    if (refs.status) refs.status.textContent = 'Live';
+  const load = async ({ background = false } = {}) => {
+    const version = ++requestVersion;
+    loading = true;
+    const params = background && appliedFilters ? new URLSearchParams(appliedFilters) : buildParams();
+    if (!background && refs.status) refs.status.textContent = 'Loading';
+    try {
+      const payload = await fetchStoreOps({}, params);
+      if (version !== requestVersion) return;
+      if (refs.dateFrom instanceof HTMLInputElement && !refs.dateFrom.value) refs.dateFrom.value = payload.filters?.date_from || '';
+      if (refs.dateTo instanceof HTMLInputElement && !refs.dateTo.value) refs.dateTo.value = payload.filters?.date_to || '';
+      if (!params.has('date_from') && payload.filters?.date_from) params.set('date_from', payload.filters.date_from);
+      if (!params.has('date_to') && payload.filters?.date_to) params.set('date_to', payload.filters.date_to);
+      appliedFilters = params;
+      renderMetrics(payload.metrics || {});
+      renderEmployees(payload.employees || []);
+      renderOrders(payload.orders || []);
+      if (payload.orders_truncated && refs.tableMeta) refs.tableMeta.textContent = 'Latest 300 orders · Narrow the filters to see more';
+      if (refs.status) { refs.status.textContent = 'Live'; refs.status.title = 'Refreshes automatically every 30 seconds'; }
+      root.removeAttribute('data-load-error');
+    } catch (error) {
+      if (version !== requestVersion) return;
+      root.setAttribute('data-load-error', 'true');
+      if (refs.status) refs.status.textContent = background ? 'Update failed · Showing previous results' : 'Could not load activity';
+      if (!background) {
+        document.querySelectorAll('[data-store-ops-metric]').forEach(node => node.textContent = '—');
+        if (refs.throughput) refs.throughput.textContent = '—';
+        if (refs.throughputDetail) refs.throughputDetail.textContent = 'Unavailable';
+        if (refs.tableMeta) refs.tableMeta.textContent = 'Connection error';
+        if (refs.tableBody) refs.tableBody.innerHTML = `<tr><td colspan="9" class="admin-empty">${escapeHtml(error.name === 'TimeoutError' ? 'Store operations timed out. Please retry.' : error.message || 'Could not load activity.')}</td></tr>`;
+      }
+    } finally {
+      if (version === requestVersion) loading = false;
+    }
   };
+
+  const refreshVisible = () => {
+    if (!loading && document.visibilityState === 'visible' && root.classList.contains('is-active') && !refs.form?.contains(document.activeElement)) load({ background: true });
+  };
+  setInterval(refreshVisible, 30000);
+  document.addEventListener('visibilitychange', refreshVisible);
+  window.addEventListener('online', refreshVisible);
+  document.querySelector('[data-store-ops-refresh]')?.addEventListener('click', () => load({ background: true }));
 
   const openDrawer = async (row) => {
     const orderId = row.dataset.orderId || '';

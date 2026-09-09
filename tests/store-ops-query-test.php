@@ -1,9 +1,6 @@
 <?php
 declare(strict_types=1);
-$source = file_get_contents(dirname(__DIR__) . '/api/store-ops/index.php');
-foreach ([['jg_exec_store_ops_csv_filter', 'jg_exec_store_ops_format_duration'], ['jg_exec_store_ops_orders', 'jg_exec_store_ops_events']] as [$start, $end]) {
-    eval(substr($source, strpos($source, 'function ' . $start . '('), strpos($source, 'function ' . $end . '(') - strpos($source, 'function ' . $start . '(')));
-}
+require_once dirname(__DIR__) . '/store-ops-report.php';
 class StoreOpsStatement extends PDOStatement {
     public function __construct(private string $sql) {}
     public function execute(?array $params = null): bool {

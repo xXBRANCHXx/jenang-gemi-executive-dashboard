@@ -144,3 +144,25 @@ new balance calculation, threshold setting or polling pipeline.
 `tests/executive-flat-pages-browser.cjs` covers the three populated reports in both
 themes and on mobile, original filters/actions/export, filtered Back navigation,
 and the original ad-credit feed driving the shared warning.
+
+Store operations now reads `store_ops_order_fulfillment_v2`,
+`store_ops_order_events_v2` and `store_ops_employees_v2` in the shared SKU database:
+the same tables written by Store Ops `store-ops-fulfillment-runtime.php` and
+`api/orders-v2/`. The old dashboard endpoint created/read unused unversioned tables,
+which explained the empty page. The replacement is read-only and runs no schema
+creation or SKU synchronization. It reads existing history immediately, applies
+employee/source/status/order filters to metrics and rows, uses Jakarta day bounds,
+and reports failures explicitly. Visible reports refresh every 30 seconds; failed
+background refreshes retain the previous results with a stale-data message. Logs
+above 300 rows explicitly ask for narrower filters.
+
+SKU DB and All Orders have flat neutral workspaces, compact toolbars, rectangular
+filters, and unboxed tables. SKU builder/mapping/approval controls, search, exports,
+price edits, permissions, order filtering, detail links and payment actions remain
+owned by their existing controllers. Back navigation is unchanged.
+
+Validation: `tests/store-ops-report-test.php` executes the actual report queries
+against isolated v2 tables, adapting MySQL date arithmetic for SQLite;
+`tests/store-ops-query-test.php` checks native prepared-statement bindings.
+`tests/executive-catalog-orders-browser.cjs` exercises native SKU/Orders controls
+and Store Ops refresh/error recovery in a browser using isolated fixture responses.

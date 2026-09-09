@@ -122,8 +122,8 @@ $pageBuildVersion = 'sku1.00.01';
                             <article class="admin-sku-composer admin-sku-collapsible">
                                 <details class="admin-sku-collapse">
                                     <summary class="admin-sku-collapse-toggle">
-                                        <span class="admin-sku-collapse-arrow" aria-hidden="true"></span>
-                                        <strong>Builder</strong>
+                                        <span class="admin-sku-disclosure-icon" aria-hidden="true"><?php echo ed_navigation_icon('plus'); ?></span>
+                                        <strong>Create SKU</strong>
                                     </summary>
                                     <div class="admin-sku-collapse-body">
                                         <div class="admin-sku-preview-surface">
@@ -191,7 +191,7 @@ $pageBuildVersion = 'sku1.00.01';
                                 <article class="admin-sku-dock admin-sku-request-dock admin-sku-collapsible">
                                     <details class="admin-sku-collapse">
                                         <summary class="admin-sku-collapse-toggle">
-                                            <span class="admin-sku-collapse-arrow" aria-hidden="true"></span>
+                                            <span class="admin-sku-disclosure-icon" aria-hidden="true"><?php echo ed_navigation_icon('plus'); ?></span>
                                             <strong><?php echo $isBranch ? 'Approvals' : 'Mapping Requests'; ?></strong>
                                         </summary>
                                         <div class="admin-sku-collapse-body">
@@ -206,7 +206,7 @@ $pageBuildVersion = 'sku1.00.01';
                                 <article class="admin-sku-dock admin-sku-collapsible">
                                     <details class="admin-sku-collapse">
                                         <summary class="admin-sku-collapse-toggle">
-                                            <span class="admin-sku-collapse-arrow" aria-hidden="true"></span>
+                                            <span class="admin-sku-disclosure-icon" aria-hidden="true"><?php echo ed_navigation_icon('plus'); ?></span>
                                             <strong>Mappings</strong>
                                         </summary>
                                         <div class="admin-sku-collapse-body">
@@ -261,7 +261,7 @@ $pageBuildVersion = 'sku1.00.01';
                         <section class="admin-sku-apply-band admin-sku-collapsible" data-apply-panel hidden aria-label="Push SKU to live database">
                             <details class="admin-sku-collapse" open>
                                 <summary class="admin-sku-collapse-toggle">
-                                    <span class="admin-sku-collapse-arrow" aria-hidden="true"></span>
+                                    <span class="admin-sku-disclosure-icon" aria-hidden="true"><?php echo ed_navigation_icon('plus'); ?></span>
                                     <strong>SKU Approver</strong>
                                 </summary>
                                 <div class="admin-sku-collapse-body admin-sku-apply-collapse-body">
@@ -301,6 +301,7 @@ $pageBuildVersion = 'sku1.00.01';
                     </section>
 
                     <section class="admin-sku-table-shell" aria-label="Approved live SKU database">
+                        <div class="admin-sku-catalog-heading"><h2>SKU catalog</h2></div>
                         <div class="admin-sku-table-toolbar">
                             <div class="admin-sku-filter-strip">
                                 <label>

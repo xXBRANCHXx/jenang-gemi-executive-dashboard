@@ -18,7 +18,7 @@ expect(page.includes('data-profile-search') && page.includes('data-profile-segme
 expect(script.includes('filteredProfiles') && script.includes('repeatOnly'), 'Customer profile filters must drive the directory.');
 expect(directPage.includes('name="sales_channel"') && directPage.includes('value="walk_in"'), 'Direct Orders must expose WhatsApp and walk-in channel selection.');
 expect(directScript.includes("state.salesChannel === 'walk_in'") && directScript.includes('Complete walk-in sale'), 'Walk-in order entry must remove shipping requirements and expose a completion action.');
-expect(ordersPage.includes('All-channel order facts'), 'Orders must clearly describe its unified all-channel scope.');
+expect(ordersPage.includes('<h3>All orders</h3>') && ordersPage.includes('Loading marketplace, partner, WhatsApp, website, and walk-in orders'), 'All Orders must retain its unified all-channel scope.');
 expect(ordersPage.includes('data-customer-lifecycle') && ordersPage.includes('href="../customer-profiles/"'), 'The homepage must expose a clickable Customer Lifecycle chart linked to Customer Profiles.');
 expect(ordersPage.includes('Customers grouped by their distinct order count'), 'The homepage lifecycle chart must state that its grain is customer orders.');
 expect(dashboardScript.includes('lifecycle_chart') && dashboardScript.includes('profiled_orders') && dashboardScript.includes('item rows are collapsed first'), 'The homepage chart must render the order-grain lifecycle payload and explain the denominator.');

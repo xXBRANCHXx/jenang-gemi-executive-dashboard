@@ -58,7 +58,7 @@ $sidebarSection = match (true) {
     in_array($requestedView ?? '', ['website', 'site', 'home', 'campaign', 'campaigns', 'landing', 'landing-pages'], true) => 'website',
     default => 'home',
 };
-$dashboardBuildVersion = 'exec3.98.16';
+$dashboardBuildVersion = 'exec3.98.17';
 $adminCssVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.js');
 $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/store-ops.js');
@@ -663,18 +663,18 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
                 </section>
                     </section>
 
-                    <section class="admin-view" data-view-panel="orders">
+                    <section class="admin-view admin-orders-view" data-view-panel="orders">
                 <section class="admin-main-grid">
                     <article class="admin-panel admin-panel-table admin-panel-wide">
                         <div class="admin-panel-head">
                             <div>
                                 <span class="admin-panel-kicker">Orders</span>
-                                <h3>All-channel order facts</h3>
+                                <h3>All orders</h3>
                                 <span class="admin-panel-meta" data-orders-status>Loading marketplace, partner, WhatsApp, website, and walk-in orders</span>
                                 <span class="admin-orders-payment-audit is-automatic" data-orders-payment-audit>Order and payment statuses reconcile automatically in the background</span>
                             </div>
                             <div class="admin-orders-actions">
-                                <button type="button" class="admin-primary-btn admin-orders-ops-btn" data-view-switch="store-ops">Ops</button>
+                                <button type="button" class="admin-primary-btn admin-orders-ops-btn" data-view-switch="store-ops"><?php echo ed_navigation_icon('box'); ?> Store operations</button>
                                 <button type="button" class="admin-soft-btn admin-orders-arrangement-btn" data-view-switch="shipment-arrangement">Shipment Arrangement</button>
                                 <button type="button" class="admin-orders-export-btn" data-orders-export disabled title="Choose both a start and end date in Filters">Export CSV</button>
                                 <button type="button" class="admin-orders-load-btn" data-orders-load-more hidden>Load older</button>
@@ -1161,7 +1161,7 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
 
 	                    <section class="admin-view admin-store-ops-layout" data-view-panel="store-ops" data-store-ops-dashboard data-store-ops-endpoint="../api/store-ops/">
                 <section class="admin-metric-grid admin-store-ops-metrics">
-                    <article class="admin-metric-card"><span>Fulfilled Today</span><strong data-store-ops-metric="fulfilled_today">0</strong><small>Completed fulfillment rows</small></article>
+                    <article class="admin-metric-card"><span>Fulfilled</span><strong data-store-ops-metric="fulfilled_today">0</strong><small>In selected period</small></article>
                     <article class="admin-metric-card"><span>Active Claims</span><strong data-store-ops-metric="active_claims">0</strong><small>Currently owned orders</small></article>
                     <article class="admin-metric-card"><span>Avg Fulfillment</span><strong data-store-ops-metric="average_fulfillment_label">0s</strong><small>Claim to fulfilled</small></article>
                     <article class="admin-metric-card"><span>Scan Errors</span><strong data-store-ops-metric="scan_errors">0</strong><small>Rejected or wrong scans</small></article>
@@ -1175,7 +1175,7 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
                             <h3>Fulfillment activity</h3>
                             <span class="admin-panel-meta" data-store-ops-status>Loading</span>
                         </div>
-                        <button type="button" class="admin-primary-btn" data-view-switch="shipment-arrangement">Shipment Arrangement</button>
+                        <div class="admin-store-ops-heading-actions"><button type="button" class="admin-ghost-btn" data-store-ops-refresh>Refresh</button><button type="button" class="admin-primary-btn" data-view-switch="shipment-arrangement">Shipment Arrangement</button></div>
                     </div>
                     <form class="admin-store-ops-filter-grid" data-store-ops-filters>
                         <label>
