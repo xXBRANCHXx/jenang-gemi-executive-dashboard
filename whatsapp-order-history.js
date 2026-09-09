@@ -10,6 +10,9 @@ document.addEventListener('DOMContentLoaded', () => {
     search: root.querySelector('[data-history-search]'),
     statusFilter: root.querySelector('[data-history-status-filter]'),
     archiveFilter: root.querySelector('[data-history-archive-filter]'),
+    channelFilter: root.querySelector('[data-history-channel-filter]'),
+    invoiceDialog: root.querySelector('[data-history-invoice-dialog]'),
+    invoiceContent: root.querySelector('[data-history-invoice-content]'),
     previous: root.querySelector('[data-history-previous]'),
     next: root.querySelector('[data-history-next]'),
     page: root.querySelector('[data-history-page]'),
@@ -33,6 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
     query: initialParams.get('query') || '',
     status: initialParams.get('status') || '',
     archive: ['active', 'archived', 'all'].includes(initialParams.get('archive')) ? initialParams.get('archive') : 'active',
+    channel: ['all', 'whatsapp', 'walk_in'].includes(initialParams.get('channel')) ? initialParams.get('channel') : 'all',
     orders: [],
     pagination: { page: 1, total_pages: 1, total: 0 },
     loading: false,
@@ -64,7 +68,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const statusClass = (status) => String(status || 'unknown').toLowerCase().replaceAll('_', '-');
   const paymentLabel = (order) => {
     const status = String(order.payment_status || 'unpaid').toLowerCase();
-    const method = { cash: 'Cash', bank: 'Bank' }[String(order.payment_method || '').toLowerCase()] || '';
+    const method = { cash: 'Cash', bank: 'Bank' }[String(order.payment_method || '').toLowerCase()] || String(order.payment_method || '');
     if (status === 'paid') return `Paid${method ? ` · ${method}` : ''}`;
     if (status === 'canceled') return 'Canceled';
     return order.pay_later ? 'Pay later' : 'Unpaid';
@@ -79,6 +83,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const syncUrl = () => {
     const params = new URLSearchParams();
     if (state.query) params.set('query', state.query);
+    if (state.channel !== 'all') params.set('channel', state.channel);
     if (state.status) params.set('status', state.status);
     if (state.archive !== 'active') params.set('archive', state.archive);
     if (state.page > 1) params.set('page', String(state.page));
@@ -98,13 +103,15 @@ document.addEventListener('DOMContentLoaded', () => {
   const renderOrders = (orders = []) => {
     if (!refs.body) return;
     if (!orders.length) {
-      refs.body.innerHTML = '<tr><td colspan="10" class="admin-empty">No WhatsApp orders match these filters.</td></tr>';
+      refs.body.innerHTML = '<tr><td colspan="10" class="admin-empty">No direct orders match these filters.</td></tr>';
       return;
     }
     refs.body.innerHTML = orders.map((order) => {
       const items = Array.isArray(order.items) ? order.items : [];
       const itemCount = Number(order.item_count || items.reduce((sum, item) => sum + Number(item.quantity || 0), 0));
-      const url = `../whatsapp-order/?order=${encodeURIComponent(order.order_id)}`;
+      const isCounter = order.source === 'counter';
+      const url = isCounter ? `?invoice=${encodeURIComponent(order.order_id)}` : `../whatsapp-order/?order=${encodeURIComponent(order.order_id)}`;
+      const channelLabel = order.sales_channel === 'walk_in' ? (isCounter ? 'Walk-in · Counter' : 'Walk-in') : 'WhatsApp';
       const contact = order.customer?.phone || order.customer?.address || 'No contact details';
       const paymentStatus = String(order.payment_status || 'unpaid').toLowerCase();
       const canConfirmPayment = order.pay_later === true
@@ -115,15 +122,15 @@ document.addEventListener('DOMContentLoaded', () => {
         : `<span class="whatsapp-history-payment-status is-${escapeHtml(paymentStatus)}">${escapeHtml(paymentLabel(order))}</span>`;
       const archiveAction = order.can_archive === true
         ? `<button type="button" class="whatsapp-history-icon-btn is-archive" data-history-archive="${escapeHtml(order.order_id)}" aria-label="Archive ${escapeHtml(order.order_id)}" title="Archive order"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M5 7l1 13h12l1-13M9 11h6M8 4h8l1 3H7l1-3Z"/></svg></button>`
-        : '<span class="whatsapp-history-archived-mark" title="Archived"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M5 7l1 13h12l1-13M9 11h6M8 4h8l1 3H7l1-3Z"/></svg></span>';
-      return `<tr class="whatsapp-history-row${order.archived ? ' is-archived' : ''}" tabindex="0" role="link" data-order-url="${escapeHtml(url)}" aria-label="Open ${escapeHtml(order.order_id)}">
-        <td><a href="${escapeHtml(url)}"><strong>${escapeHtml(order.order_id)}</strong><small>${escapeHtml(order.archived ? `Archived ${formatDate(order.archived_at)}` : (order.label_original_name || 'WhatsApp order'))}</small></a></td>
-        <td><strong>${escapeHtml(order.customer?.name || 'WhatsApp customer')}</strong><small>${escapeHtml(contact)}</small></td>
+        : order.archived ? '<span class="whatsapp-history-archived-mark" title="Archived"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M5 7l1 13h12l1-13M9 11h6M8 4h8l1 3H7l1-3Z"/></svg></span>' : '';
+      return `<tr class="whatsapp-history-row${order.archived ? ' is-archived' : ''}" tabindex="0" role="link" data-order-url="${escapeHtml(url)}" ${isCounter ? `data-counter-invoice="${escapeHtml(order.order_id)}"` : ''} aria-label="Open ${escapeHtml(order.order_id)}">
+        <td><a href="${escapeHtml(url)}"><strong>${escapeHtml(order.order_id)}</strong><small>${escapeHtml(`${channelLabel}${order.archived ? ` · Archived ${formatDate(order.archived_at)}` : order.label_original_name ? ` · ${order.label_original_name}` : ''}`)}</small></a></td>
+        <td><strong>${escapeHtml(order.customer?.name || (order.sales_channel === 'walk_in' ? 'Walk-in customer' : 'Customer'))}</strong><small>${escapeHtml(contact)}</small></td>
         <td><span class="whatsapp-history-status ${escapeHtml(statusClass(order.status))}">${escapeHtml(statusLabel(order.status))}</span></td>
         <td>${escapeHtml(integer.format(itemCount))}</td>
         <td><strong>${escapeHtml(money(order.merchandise_total))}</strong>${Number(order.discount_total || 0) > 0 ? `<small>−${escapeHtml(money(order.discount_total))}</small>` : ''}</td>
         <td>${escapeHtml(money(order.shipping_cost))}</td>
-        <td><strong>${escapeHtml(money(Number(order.merchandise_total || 0) + Number(order.shipping_cost || 0)))}</strong></td>
+        <td><strong>${escapeHtml(money(order.customer_total ?? (Number(order.merchandise_total || 0) + Number(order.shipping_cost || 0))))}</strong></td>
         <td class="whatsapp-history-payment-cell">${payment}</td>
         <td>${escapeHtml(formatDate(order.created_at))}</td>
         <td><span class="whatsapp-history-row-actions">${archiveAction}<span class="whatsapp-history-open" aria-hidden="true">→</span></span></td>
@@ -147,10 +154,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (refs.status) refs.status.textContent = 'Loading orders…';
     renderPagination();
     const params = new URLSearchParams({
-      action: 'history', page: String(state.page), per_page: String(state.perPage)
+      action: 'history', include_walk_ins: '1', page: String(state.page), per_page: String(state.perPage)
     });
     if (!state.lifecycleSynced) params.set('sync_lifecycle', '1');
     if (state.query) params.set('query', state.query);
+    if (state.channel !== 'all') params.set('channel', state.channel);
     if (state.status) params.set('status', state.status);
     params.set('archive', state.archive);
     try {
@@ -159,7 +167,7 @@ document.addEventListener('DOMContentLoaded', () => {
         headers: { Accept: 'application/json' }
       });
       const payload = await response.json().catch(() => ({}));
-      if (!response.ok || !payload.ok) throw new Error(payload.error || 'Unable to load WhatsApp order history.');
+      if (!response.ok || !payload.ok) throw new Error(payload.error || 'Unable to load direct order history.');
       state.lifecycleSynced = true;
       state.pagination = payload.pagination || state.pagination;
       state.page = Number(state.pagination.page || 1);
@@ -167,10 +175,14 @@ document.addEventListener('DOMContentLoaded', () => {
       state.orders = Array.isArray(payload.orders) ? payload.orders : [];
       renderOrders(state.orders);
       if (refs.status) refs.status.textContent = `${integer.format(state.pagination.total || 0)} order${Number(state.pagination.total || 0) === 1 ? '' : 's'} found`;
+      if (payload.warnings?.length) {
+        setError(payload.warnings.join(' '));
+        if (refs.status) refs.status.textContent += ' · Partial results';
+      }
       syncUrl();
     } catch (error) {
       if (error?.name !== 'AbortError') {
-        setError(error instanceof Error ? error.message : 'Unable to load WhatsApp order history.');
+        setError(error instanceof Error ? error.message : 'Unable to load direct order history.');
         if (refs.status) refs.status.textContent = 'History unavailable';
       }
     } finally {
@@ -181,6 +193,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
+  if (refs.channelFilter) refs.channelFilter.value = state.channel;
+  refs.channelFilter?.addEventListener('change', () => {
+    state.channel = refs.channelFilter.value;
+    state.page = 1;
+    loadHistory();
+  });
   if (refs.search) refs.search.value = state.query;
   if (refs.statusFilter) refs.statusFilter.value = state.status;
   if (refs.archiveFilter) refs.archiveFilter.value = state.archive;
@@ -341,7 +359,38 @@ document.addEventListener('DOMContentLoaded', () => {
     event.preventDefault();
     archiveOrder();
   });
+  let invoiceRequest = null;
+  const openInvoice = async (number) => {
+    invoiceRequest?.abort();
+    const controller = new AbortController();
+    invoiceRequest = controller;
+    refs.invoiceContent.textContent = 'Loading receipt…';
+    refs.invoiceDialog.showModal();
+    try {
+      const params = new URLSearchParams({ action: 'walk_in_invoice', invoice: number });
+      const response = await fetch(`${endpoint}?${params}`, { credentials: 'same-origin', cache: 'no-store', signal: controller.signal });
+      const payload = await response.json();
+      if (!response.ok || !payload.ok) throw new Error(payload.error || 'Receipt could not be loaded.');
+      const invoice = payload.invoice;
+      refs.invoiceContent.innerHTML = `
+        <p><strong>${escapeHtml(invoice.order_id)}</strong><br>${escapeHtml(invoice.customer?.name || 'Walk-in customer')} · ${escapeHtml(formatDate(invoice.created_at))}</p>
+        <p>${escapeHtml(paymentLabel(invoice))}</p>
+        <div class="whatsapp-history-table-wrap"><table class="whatsapp-history-table"><thead><tr><th>Product</th><th>Qty</th><th>Unit price</th><th>Discount</th><th>Total</th></tr></thead>
+        <tbody>${(invoice.items || []).map(item => `<tr><td><strong>${escapeHtml(item.product_name)}</strong><small>${escapeHtml(item.sku)}</small></td><td>${escapeHtml(integer.format(item.quantity))}</td><td>${escapeHtml(money(item.unit_price))}</td><td>${escapeHtml(money(item.discount_total))}</td><td>${escapeHtml(money(item.line_total))}</td></tr>`).join('')}</tbody></table></div>
+        <dl class="whatsapp-history-invoice-totals"><div><dt>Merchandise after discounts</dt><dd>${escapeHtml(money(invoice.merchandise_total))}</dd></div><div><dt>Shipping</dt><dd>${escapeHtml(money(invoice.shipping_cost))}</dd></div><div><dt>Tax</dt><dd>${escapeHtml(money(invoice.tax))}</dd></div><div><dt>Customer total</dt><dd><strong>${escapeHtml(money(invoice.customer_total))}</strong></dd></div></dl>`;
+    } catch (error) {
+      if (error.name !== 'AbortError') refs.invoiceContent.textContent = error.message || 'Receipt could not be loaded.';
+    }
+  };
+  refs.invoiceDialog?.addEventListener('close', () => invoiceRequest?.abort());
   refs.body?.addEventListener('click', (event) => {
+    const counter = event.target.closest('[data-counter-invoice]');
+    if (counter) {
+      if ((event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) && event.target.closest('a')) return;
+      event.preventDefault();
+      openInvoice(counter.dataset.counterInvoice);
+      return;
+    }
     const paymentButton = event.target.closest('[data-history-confirm-payment]');
     if (paymentButton) {
       openPaymentDialog(paymentButton.dataset.historyConfirmPayment || '');
@@ -358,6 +407,9 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   refs.body?.addEventListener('keydown', (event) => {
     if (!['Enter', ' '].includes(event.key)) return;
+    if (event.target.closest('button')) return;
+    const counter = event.target.closest('[data-counter-invoice]');
+    if (counter) { event.preventDefault(); openInvoice(counter.dataset.counterInvoice); return; }
     const row = event.target.closest('[data-order-url]');
     if (!row?.dataset.orderUrl) return;
     event.preventDefault();
@@ -365,4 +417,5 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   loadHistory();
+  if (initialParams.get('invoice')) openInvoice(initialParams.get('invoice'));
 });

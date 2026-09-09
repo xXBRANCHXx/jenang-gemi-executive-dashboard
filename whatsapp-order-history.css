@@ -838,3 +838,30 @@
     justify-content: space-between;
   }
 }
+
+/* Direct history uses a compact ledger, with the channel explicit on every row. */
+body:has(#admin-rail-nav.ed-nav) .whatsapp-history-layout{width:100%;padding:24px 0 64px}
+body:has(#admin-rail-nav.ed-nav) .whatsapp-history-hero{border:0;border-radius:0;box-shadow:none;background:transparent;padding:0 0 20px;align-items:center;gap:16px}
+body:has(#admin-rail-nav.ed-nav) .whatsapp-history-hero h2{font-size:18px;margin:0 0 6px}
+body:has(#admin-rail-nav.ed-nav) .whatsapp-history-hero .admin-panel-kicker{display:none}
+body:has(#admin-rail-nav.ed-nav) .whatsapp-history-metrics{gap:0;border-block:1px solid var(--admin-border);margin:0 0 24px}
+body:has(#admin-rail-nav.ed-nav) .whatsapp-history-metrics article{background:transparent;border:0;border-radius:0;box-shadow:none;padding:20px;border-right:1px solid var(--admin-border)}
+body:has(#admin-rail-nav.ed-nav) .whatsapp-history-metrics article:last-child{border-right:0}
+body:has(#admin-rail-nav.ed-nav) .whatsapp-history-ledger{border:0;border-radius:0;box-shadow:none;background:transparent;padding:0}
+body:has(#admin-rail-nav.ed-nav) .whatsapp-history-filters{grid-template-columns:minmax(180px,2fr) repeat(3,minmax(130px,1fr))}
+body:has(#admin-rail-nav.ed-nav) .whatsapp-history-invoice-dialog{width:min(780px,calc(100vw - 32px));max-height:85dvh;overflow:auto;padding:24px;border:1px solid var(--admin-border);border-radius:8px;background:var(--admin-surface);color:var(--admin-text)}
+.whatsapp-history-invoice-heading{display:flex;align-items:center;justify-content:space-between;gap:16px}
+.whatsapp-history-invoice-heading h2{font-size:20px;margin:0}
+.whatsapp-history-invoice-dialog .whatsapp-history-table{min-width:560px}
+.whatsapp-history-invoice-totals{margin:20px 0 0 auto;max-width:400px}
+.whatsapp-history-invoice-totals>div{display:flex;justify-content:space-between;gap:16px;padding:10px 0;border-bottom:1px solid var(--admin-border)}
+.whatsapp-history-invoice-totals dd{margin:0;white-space:nowrap}
+@media(max-width:1100px){body:has(#admin-rail-nav.ed-nav) .whatsapp-history-filters{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){body:has(#admin-rail-nav.ed-nav) .whatsapp-history-hero{align-items:flex-start;flex-direction:column}body:has(#admin-rail-nav.ed-nav) .whatsapp-history-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}body:has(#admin-rail-nav.ed-nav) .whatsapp-history-metrics article{padding:16px 8px}body:has(#admin-rail-nav.ed-nav) .whatsapp-history-filters{grid-template-columns:1fr}}
+
+body:has(#admin-rail-nav.ed-nav) :is(.whatsapp-history-status,.whatsapp-history-payment-status,.whatsapp-history-pay-btn){background:transparent!important;border-color:var(--ui-border)!important;border-radius:5px;font-weight:500;text-transform:none;letter-spacing:0}
+body:has(#admin-rail-nav.ed-nav) :is(.whatsapp-history-status.fulfilled,.whatsapp-history-payment-status.is-paid,.whatsapp-history-pay-btn){color:var(--ui-accent)!important}
+body:has(#admin-rail-nav.ed-nav) .whatsapp-history-pay-btn{border-color:var(--ui-accent)!important;cursor:pointer}
+body:has(#admin-rail-nav.ed-nav) .whatsapp-history-pay-btn:hover{background:var(--ui-hover)!important}
+:root[data-admin-theme='light'] body:has(#admin-rail-nav.ed-nav) :is(.whatsapp-history-status.is-listed,.whatsapp-history-status.pending-publish,.whatsapp-history-payment-status.is-unpaid){color:#805400!important}
+:root[data-admin-theme='light'] body:has(#admin-rail-nav.ed-nav) :is(.whatsapp-history-status.cancelled,.whatsapp-history-status.publish-failed,.whatsapp-history-payment-status.is-canceled){color:#b42332!important}

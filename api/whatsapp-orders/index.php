@@ -90,8 +90,19 @@ try {
             (string) ($_GET['query'] ?? ''),
             (string) ($_GET['status'] ?? ''),
             (string) ($_GET['sync_lifecycle'] ?? '') === '1',
-            (string) ($_GET['archive'] ?? 'active')
+            (string) ($_GET['archive'] ?? 'active'),
+            (string) ($_GET['include_walk_ins'] ?? '') === '1',
+            (string) ($_GET['channel'] ?? 'all')
         ));
+    }
+    if ($method === 'GET' && $action === 'walk_in_invoice') {
+        $config = jg_sku_db_config();
+        $skuPdo = new PDO(
+            sprintf('mysql:host=%s;port=%s;dbname=%s;charset=%s', $config['host'], $config['port'], $config['name'], $config['charset']),
+            $config['user'], $config['pass'],
+            [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC, PDO::ATTR_EMULATE_PREPARES => false]
+        );
+        jg_whatsapp_api_json(['ok' => true, 'invoice' => jg_direct_order_invoice_detail($skuPdo, (string) ($_GET['invoice'] ?? ''))]);
     }
     if ($method === 'GET' && $action === 'order') {
         $orderId = trim((string) ($_GET['order'] ?? $_GET['order_id'] ?? ''));

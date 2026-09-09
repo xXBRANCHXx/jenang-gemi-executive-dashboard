@@ -74,7 +74,7 @@ function admin_quick_menu_definitions(): array
         'whatsapp-history' => [
             'href' => '../whatsapp-order-history/',
             'icon' => 'orders',
-            'label' => 'WhatsApp History',
+            'label' => 'Direct order history',
             'description' => 'Full direct-order ledger and details',
         ],
         'wallet' => [

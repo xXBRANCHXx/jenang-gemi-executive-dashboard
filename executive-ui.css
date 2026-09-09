@@ -303,3 +303,10 @@ body:has(#admin-rail-nav.ed-nav) .admin-orders-filter-body :is(.admin-orders-fil
 body:has(#admin-rail-nav.ed-nav) :is(.admin-back-icon-link,.admin-purchase-back,.admin-back-icon-button[data-view-switch],.product-costs-back,.admin-website-back-button,.cash-flow-back,.admin-category-guide-back,.pnl-expense-page-nav>a){display:none!important}
 body:has(#admin-rail-nav.ed-nav) :is(.product-analytics-topbar,.product-flavor-topbar){grid-template-columns:minmax(0,1fr) auto}
 @media(max-width:900px){body:has(#admin-rail-nav.ed-nav) :is(.product-analytics-topbar,.product-flavor-topbar){grid-template-columns:minmax(0,1fr)}body:has(#admin-rail-nav.ed-nav) .product-analytics-actions{grid-column:1}}
+
+/* Notification entries must retain their full height inside the scrolling inbox. */
+body:has(#admin-rail-nav.ed-nav) .admin-partner-billing-list{display:flex!important;flex-direction:column;align-items:stretch;gap:10px!important}
+body:has(#admin-rail-nav.ed-nav) .admin-billing-notification-row{flex:0 0 auto!important;height:auto!important;min-height:min-content}
+body:has(#admin-rail-nav.ed-nav) .admin-billing-notification-main{height:auto!important;min-height:88px;padding:16px!important;align-items:start!important;gap:12px!important}
+body:has(#admin-rail-nav.ed-nav) .admin-billing-notification-copy{gap:7px!important;white-space:normal;overflow-wrap:anywhere}
+body:has(#admin-rail-nav.ed-nav) .admin-billing-notification-copy strong{overflow:visible!important;text-overflow:clip!important;white-space:normal!important}

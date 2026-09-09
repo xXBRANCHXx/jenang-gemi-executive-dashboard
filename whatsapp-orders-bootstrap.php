@@ -5,6 +5,7 @@ require_once __DIR__ . '/analytics-bootstrap.php';
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/sku-db-bootstrap.php';
 require_once __DIR__ . '/website-commerce-bootstrap.php';
+require_once __DIR__ . '/direct-order-history.php';
 
 const JG_WHATSAPP_ORDER_OPEN_STATUSES = ['PENDING_PUBLISH', 'PUBLISH_FAILED', 'IS_LISTED', 'IS_BEING_FULFILLED'];
 const JG_WHATSAPP_ORDER_METRIC_STATUSES = ['IS_LISTED', 'IS_BEING_FULFILLED', 'FULFILLED'];
@@ -1192,10 +1193,30 @@ function jg_whatsapp_list_orders(PDO $pdo, int $limit = 100): array
 }
 
 /** @return array{orders:array<int,array<string,mixed>>,summary:array<string,float|int>,pagination:array<string,int>,filters:array<string,string>} */
-function jg_whatsapp_order_history(PDO $pdo, int $page = 1, int $perPage = 50, string $query = '', string $status = '', bool $syncLifecycle = false, string $archive = 'active'): array
+function jg_whatsapp_order_history(PDO $pdo, int $page = 1, int $perPage = 50, string $query = '', string $status = '', bool $syncLifecycle = false, string $archive = 'active', bool $includeWalkIns = false, string $channel = 'all'): array
 {
     jg_whatsapp_ensure_schema($pdo);
     if ($syncLifecycle) jg_whatsapp_sync_history_lifecycle($pdo);
+    if ($includeWalkIns) {
+        $skuPdo = null;
+        $warnings = [];
+        if ($channel !== 'whatsapp' && $archive !== 'archived' && in_array(strtoupper($status), ['', 'FULFILLED'], true)) {
+            try {
+                $config = jg_sku_db_config();
+                $skuPdo = new PDO(
+                    sprintf('mysql:host=%s;port=%s;dbname=%s;charset=%s', $config['host'], $config['port'], $config['name'], $config['charset']),
+                    $config['user'], $config['pass'],
+                    [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC, PDO::ATTR_EMULATE_PREPARES => false]
+                );
+                $skuPdo->query('SELECT invoice_number FROM store_ops_walkin_invoices LIMIT 0');
+            } catch (Throwable $error) {
+                error_log('Direct order counter source unavailable [' . $error->getCode() . ']');
+                $skuPdo = null;
+                $warnings[] = 'Counter sales could not be loaded. These records and totals only include dashboard orders. Please retry.';
+            }
+        }
+        return jg_direct_order_history($pdo, $skuPdo, $page, $perPage, $query, $status, $archive, $channel) + ['warnings' => $warnings];
+    }
     $page = max(1, $page);
     $perPage = max(10, min(100, $perPage));
     $query = trim($query);

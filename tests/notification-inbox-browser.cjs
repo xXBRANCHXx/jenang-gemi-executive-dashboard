@@ -61,6 +61,26 @@ let events = [
  await page.locator('[data-billing-notification-toggle]').click();await drawer.locator('[data-billing-event-id="stock_order:5"].is-new').waitFor();
  await page.setViewportSize({width:390,height:844});await page.waitForTimeout(500);const mobile=await drawer.boundingBox();assert(mobile.width===390&&mobile.height===844);
  await page.screenshot({path:path.join(__dirname,'../verification/ui/notifications-mobile.png')});
+ await page.keyboard.press('Escape');
+ events = Array.from({length:30},(_,i)=>({...common,id:`payment:${100+i}`,record_id:100+i,type:'payment',status:i===0?'pending':'confirmed',action_required:i===0,partner_name:'Long partner name for a monthly billing notification',period_label:'August 1–31, 2026'}));
+ await page.locator('[data-billing-notification-toggle]').click();
+ await drawer.locator('[data-billing-event-id="payment:129"]').waitFor({state:'attached'});
+ for(const size of [{width:1440,height:900},{width:390,height:844}]){
+  await page.setViewportSize(size);
+  const layout=await drawer.evaluate(el=>{
+   const list=el.querySelector('.admin-partner-billing-list');
+   return {scrolls:list.scrollHeight>list.clientHeight,rows:[...list.querySelectorAll('.admin-billing-notification-row')].map(row=>{
+    const r=row.getBoundingClientRect();const copy=row.querySelector('.admin-billing-notification-copy').getBoundingClientRect();
+    return {height:r.height,fits:copy.bottom<=r.bottom-10&&copy.top>=r.top+10};
+   })};
+  });
+  assert(layout.scrolls,'Long inbox scrolls');assert.equal(layout.rows.length,30);
+  assert(layout.rows.every(row=>row.height>=88&&row.fits),'Every notification retains padding and full content height');
+  await drawer.locator('[data-billing-event-id="payment:129"]').scrollIntoViewIfNeeded();
+  assert(await drawer.locator('[data-billing-event-id="payment:129"]').isVisible(),'Oldest entry reachable');
+  await drawer.locator('.admin-partner-billing-list').evaluate(el=>el.scrollTop=0);
+  await page.screenshot({path:path.join(__dirname,`../verification/ui/notifications-long-${size.width}.png`)});
+ }
  assert.deepEqual(errors,[]);assert.equal(posts.length,1);
  console.log('PASS: right-side inbox, new/all filters, retained history, browser-persistent read state, new arrivals, safe historical links, original payment confirmation payload, focus return and mobile.');await browser.close();
 })().catch(e=>{console.error(e);process.exit(1)});
