@@ -24,12 +24,52 @@ if (rail) {
   const breadcrumb = document.createElement('nav');
   breadcrumb.className = 'ed-breadcrumb';
   breadcrumb.setAttribute('aria-label', 'Page location');
-  host?.prepend(breadcrumb);
+  const tools = document.querySelector('[data-ed-page-tools]');
+  const backLink = document.querySelector('[data-ed-back]');
+  const budgetAlert = document.querySelector('[data-ed-budget-alert]');
+  tools.append(breadcrumb);
+  host?.prepend(tools, budgetAlert);
+  const trailKey = 'executive-navigation-trail-v1';
+  let trail = [];
+  try { trail = JSON.parse(sessionStorage.getItem(trailKey) || '[]'); } catch (_) {}
+  if (!Array.isArray(trail)) trail = [];
+  trail = trail.filter(path => typeof path === 'string' && path.startsWith('/') && !path.startsWith('//')).slice(-50);
+  // Consume a Back request only after navigation succeeds (unsaved-change guards may cancel it).
+  try {
+    const pending = sessionStorage.getItem(trailKey + '-back');
+    if (pending === location.pathname + location.search + location.hash && trail.at(-2) === pending) trail.pop();
+    sessionStorage.removeItem(trailKey + '-back');
+  } catch (_) {}
+  let trackedPage = '';
+  const syncBack = () => {
+    const url = new URL(window.location.href);
+    if (root) url.searchParams.set('view', new URL(current.href, location.origin).searchParams.get('view'));
+    const visit = url.pathname + url.search + url.hash;
+    if (trackedPage !== current.id) {
+      if (trail.at(-1) !== visit) trail.push(visit);
+      trackedPage = current.id;
+    } else if (trail.length) trail[trail.length - 1] = visit;
+    trail = trail.slice(-50);
+    const areaHome = pages.get(map.areas.find(area => area.id === current.area).landing);
+    const fallback = current.parent ? parentOf(current).href : areaHome.id !== current.id ? areaHome.href : current.id !== 'overview' ? pages.get('overview').href : '/';
+    backLink.href = trail.length > 1 ? trail[trail.length - 2] : fallback;
+    try { sessionStorage.setItem(trailKey, JSON.stringify(trail)); } catch (_) {}
+  };
+  backLink.addEventListener('click', event => {
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    try { sessionStorage.setItem(trailKey + '-back', new URL(backLink.href).pathname + new URL(backLink.href).search + new URL(backLink.href).hash); } catch (_) {}
+  });
+  // Capture filters changed through replaceState before following another page.
+  document.addEventListener('click', event => {
+    if (event.target instanceof Element && event.target.closest('a')) syncBack();
+  }, true);
+  window.addEventListener('pagehide', syncBack);
   const link = (title, href) => { const a = document.createElement('a'); a.textContent = title; a.href = href; return a; };
   const sync = () => {
     const view = root?.dataset.activeView;
     if (view) current = map.pages.find(page => page.href === '/dashboard/?view=' + normalizeView(view)) || current;
     const parent = parentOf(current);
+    syncBack();
     showArea(current.area);
     rail.querySelectorAll('[data-ed-page]').forEach(a => {
       const active = a.dataset.edPage === parent.id;
@@ -80,6 +120,12 @@ if (rail) {
   });
   // Preserve unpaid-order, stock and low-ad-credit awareness when an area is closed.
   const syncAlerts = () => {
+    const lowCredit = rail.querySelector('[data-ed-page="ads"]')?.classList.contains('is-credit-alert') || false;
+    budgetAlert.hidden = !lowCredit;
+    rail.querySelector('[data-ed-budget-link]').hidden = !lowCredit;
+    const growth = rail.querySelector('[data-ed-area="growth"]');
+    growth.classList.toggle('has-budget-alert', lowCredit);
+    growth.setAttribute('aria-label', lowCredit ? 'Growth — ad credit threshold reached' : 'Growth');
     for (const [area,selector,flag] of [['sales','[data-ed-page="orders"]','has-unpaid-direct-order'],['growth','[data-ed-page="ads"]','is-credit-alert'],['products','[data-ed-page="inventory"]','has-critical-dot']]) {
       rail.querySelector(`[data-ed-area="${area}"]`).classList.toggle('has-alert', rail.querySelector(selector)?.classList.contains(flag) || false);
     }

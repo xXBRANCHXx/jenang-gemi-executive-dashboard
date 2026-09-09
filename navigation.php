@@ -64,7 +64,9 @@ function render_executive_navigation(): void
         }
         echo '</nav>';
     }
-    echo '<div class="ed-nav-footer"><button type="button" data-ed-search-open>' . ed_navigation_icon('map') . ' All pages</button><a href="/">Launch Pad ' . ed_navigation_icon('external') . '</a></div></div></div></aside>';
+    echo '<div class="ed-nav-footer"><a class="ed-budget-link" data-ed-budget-link href="/dashboard/?view=ad-view" data-dashboard-view-link="ad-view" hidden>Ad credit alert · Review</a><button type="button" data-ed-search-open>' . ed_navigation_icon('map') . ' All pages</button><a href="/">Launch Pad ' . ed_navigation_icon('external') . '</a></div></div></div></aside>';
+    echo '<div class="ed-page-tools" data-ed-page-tools><a class="ed-back" data-ed-back href="/dashboard/?view=overview" aria-label="Back">' . ed_navigation_icon('arrow') . '<span>Back</span></a></div>';
+    echo '<div class="ed-budget-alert" data-ed-budget-alert role="alert" hidden>' . ed_navigation_icon('alert') . '<div><strong>Ad budget needs attention</strong><span>One or more accounts reached the configured credit threshold.</span></div><a href="/dashboard/?view=ad-view" data-dashboard-view-link="ad-view">Review ad budget ' . ed_navigation_icon('arrow') . '</a></div>';
     echo '<dialog class="ed-search" data-ed-search aria-label="Find a dashboard page"><div class="ed-search-head">' . ed_navigation_icon('search') . '<input type="search" data-ed-search-input aria-label="Search pages" placeholder="Page name, report or task…"><button type="button" data-ed-search-close aria-label="Close page search">' . ed_navigation_icon('close') . '</button></div><div class="ed-search-results" data-ed-search-results></div><footer>↑ ↓ navigate · Enter opens · Esc closes</footer></dialog>';
     echo '<script type="application/json" id="ed-navigation-map">' . json_encode($map, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) . '</script>';
     echo '<script type="module" src="/navigation.js?v=' . $version . '"></script>';

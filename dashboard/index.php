@@ -58,7 +58,7 @@ $sidebarSection = match (true) {
     in_array($requestedView ?? '', ['website', 'site', 'home', 'campaign', 'campaigns', 'landing', 'landing-pages'], true) => 'website',
     default => 'home',
 };
-$dashboardBuildVersion = 'exec3.98.15';
+$dashboardBuildVersion = 'exec3.98.16';
 $adminCssVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.js');
 $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/store-ops.js');
@@ -1186,10 +1186,13 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
                             <span>Date To</span>
                             <input type="date" name="date_to" data-store-ops-date-to>
                         </label>
-                        <label>
-                            <span>Employee</span>
-                            <select name="employees" multiple data-store-ops-employees></select>
-                        </label>
+                        <div class="admin-store-ops-employee-field">
+                            <span id="store-ops-employees-label">Employee</span>
+                            <details class="admin-store-ops-employee-picker">
+                                <summary data-store-ops-employee-summary>All employees</summary>
+                                <div><select name="employees" multiple data-store-ops-employees aria-labelledby="store-ops-employees-label"></select><small>Select employees, then Apply.</small></div>
+                            </details>
+                        </div>
                         <label>
                             <span>Source</span>
                             <input type="search" name="source" placeholder="shopee, tiktok, partner" data-store-ops-source>

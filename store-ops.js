@@ -58,6 +58,13 @@ document.addEventListener('DOMContentLoaded', () => {
     return Array.from(refs.employees.selectedOptions).map((option) => option.value).filter(Boolean);
   };
 
+  const syncEmployeeSummary = () => {
+    const selected = Array.from(refs.employees?.selectedOptions || []);
+    const summary = document.querySelector('[data-store-ops-employee-summary]');
+    if (summary) summary.textContent = selected.length === 1 ? selected[0].textContent : selected.length ? `${selected.length} employees` : 'All employees';
+  };
+  refs.employees?.addEventListener('change', syncEmployeeSummary);
+
   const buildParams = (extra = {}) => {
     const params = new URLSearchParams();
     params.set('view', 'store-ops');
@@ -111,6 +118,7 @@ document.addEventListener('DOMContentLoaded', () => {
       .map((employee) => `<option value="${escapeHtml(employee.id)}" ${selectedFromUrl.has(employee.id) ? 'selected' : ''}>${escapeHtml(employee.display_name)}${employee.active ? '' : ' (inactive)'}</option>`)
       .join('');
     employeesRendered = true;
+    syncEmployeeSummary();
   };
 
   const renderOrders = (orders = []) => {
@@ -205,6 +213,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   refs.form?.addEventListener('submit', (event) => {
     event.preventDefault();
+    document.querySelector('.admin-store-ops-employee-picker')?.removeAttribute('open');
     const params = buildParams();
     window.history.replaceState(null, '', params.toString() ? `?${params.toString()}` : window.location.pathname);
     load().catch((error) => {

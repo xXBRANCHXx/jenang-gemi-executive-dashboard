@@ -124,3 +124,23 @@ Verification on 2026-09-09: all 44 existing JavaScript checks, the complete rout
 audit, native navigation/chart/Cash flow checks, billing checks, isolated history
 queries and notification inbox browser checks passed. Notification confirmation
 was exercised with intercepted sample requests; no live payment was modified.
+
+Store operations, Daily sales and Marketplace wallets now use flat report sections,
+compact metric strips and neutral table surfaces in both themes. The original data
+series, aggregation, exports and wallet/fulfillment actions remain in place; line
+charts no longer paint a gradient underneath their series. Store Ops keeps its
+multi-employee filter inside a compact disclosure.
+
+The shared Back link records the recent dashboard pages in session storage, including
+filter URLs, because embedded view navigation uses `replaceState`. Direct entries
+fall back to the owning list, area landing page or overview. It remains a native
+link, so existing unsaved-change guards and opening in another tab still work.
+
+The original low-ad-credit status now drives a persistent, neutral-surface banner
+with a red edge and a Review ad budget link, a labeled sidebar footer link, and a
+red Growth icon marker. It clears with the existing alert state; it introduces no
+new balance calculation, threshold setting or polling pipeline.
+
+`tests/executive-flat-pages-browser.cjs` covers the three populated reports in both
+themes and on mobile, original filters/actions/export, filtered Back navigation,
+and the original ad-credit feed driving the shared warning.

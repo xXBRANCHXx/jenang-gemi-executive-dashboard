@@ -1080,7 +1080,7 @@ const getThemePalette = () => {
   if (themePaletteCache?.key === themeKey) {
     return themePaletteCache.palette;
   }
-  const styles = window.getComputedStyle(document.documentElement);
+  const styles = window.getComputedStyle(document.body);
   const palette = {
     text: styles.getPropertyValue('--admin-text').trim() || '#0c1117',
     muted: styles.getPropertyValue('--admin-muted').trim() || 'rgba(55, 65, 81, 0.68)',
@@ -1517,10 +1517,8 @@ const drawLineChart = (canvas, items, metric, unitsMap, options = {}) => {
   }
 
   const lineColor = options.lineColor || SOURCE_COLORS.instagram;
-  const fillRgb = options.fillRgb || hexToRgbParts(lineColor);
-  const fillGradient = ctx.createLinearGradient(0, padding.top, 0, padding.top + chartHeight);
-  fillGradient.addColorStop(0, `rgba(${fillRgb}, 0.18)`);
-  fillGradient.addColorStop(1, `rgba(${fillRgb}, 0)`);
+  // Keep the original plotted series and hover behavior on a plain surface.
+  const fillGradient = 'transparent';
   const linePoints = [];
 
   ctx.strokeStyle = lineColor;
@@ -7709,7 +7707,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const dailyMetricColor = (metric) => {
     if (metric === 'qty') return getOverviewMetricColor('item_count');
     if (metric === 'orders') return getOverviewMetricColor('orders');
-    return getOverviewMetricColor('revenue');
+    return getComputedStyle(document.documentElement).getPropertyValue('--ui-accent').trim() || getOverviewMetricColor('revenue');
   };
 
   const dailyTrendTooltipLines = (day) => [
