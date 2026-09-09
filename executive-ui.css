@@ -298,3 +298,8 @@ body:has(#admin-rail-nav.ed-nav) .admin-sku-collapse-toggle strong{color:var(--u
 body:has(#admin-rail-nav.ed-nav) .admin-orders-filter-body{grid-template-columns:minmax(0,1fr) minmax(0,1.1fr)!important}
 body:has(#admin-rail-nav.ed-nav) .admin-orders-filter-body :is(.admin-orders-filter-section,.admin-orders-filter-search,.admin-orders-filter-search input){min-width:0!important;max-width:100%;box-sizing:border-box}
 @media(max-width:900px){body:has(#admin-rail-nav.ed-nav) .admin-orders-filter-body{grid-template-columns:minmax(0,1fr)!important}}
+/* The shared Back link replaces legacy page-header return controls. Keep the
+   separate Previous/Back actions inside forms, dialogs and review workflows. */
+body:has(#admin-rail-nav.ed-nav) :is(.admin-back-icon-link,.admin-purchase-back,.admin-back-icon-button[data-view-switch],.product-costs-back,.admin-website-back-button,.cash-flow-back,.admin-category-guide-back,.pnl-expense-page-nav>a){display:none!important}
+body:has(#admin-rail-nav.ed-nav) :is(.product-analytics-topbar,.product-flavor-topbar){grid-template-columns:minmax(0,1fr) auto}
+@media(max-width:900px){body:has(#admin-rail-nav.ed-nav) :is(.product-analytics-topbar,.product-flavor-topbar){grid-template-columns:minmax(0,1fr)}body:has(#admin-rail-nav.ed-nav) .product-analytics-actions{grid-column:1}}
