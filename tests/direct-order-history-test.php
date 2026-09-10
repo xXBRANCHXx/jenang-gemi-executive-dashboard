@@ -30,6 +30,10 @@ $pdo->exec("UPDATE whatsapp_orders SET archived_at = '2026-09-09' WHERE id = 2")
 $pdo->exec("UPDATE whatsapp_orders SET status = 'IS_LISTED', payment_status = 'unpaid', pay_later = 1 WHERE id = 3");
 $sku->exec("UPDATE store_ops_walkin_invoices SET analytics_visible = 0 WHERE invoice_number = 'C1'");
 $sku->exec("INSERT INTO store_ops_walkin_invoices (invoice_number, invoice_type, created_at) VALUES ('COPY', 'whatsapp', '2026-09-16')");
+$pdo->exec("UPDATE whatsapp_orders SET status = 'CANCELLED' WHERE id = 4");
+$pdo->exec("UPDATE whatsapp_orders SET payment_status = 'canceled' WHERE id = 5");
+$pdo->exec("UPDATE whatsapp_orders SET payment_status = '' WHERE id = 6");
+$pdo->exec("UPDATE whatsapp_orders SET payment_status = ' PAID ' WHERE id = 7");
 $before = [$pdo->query('SELECT total_changes()')->fetchColumn(), $sku->query('SELECT total_changes()')->fetchColumn()];
 $history = fn($page=1, $query='', $status='', $archive='active', $channel='all') => jg_direct_order_history($pdo, $sku, $page, 10, $query, $status, $archive, $channel);
 $all = $history();
@@ -46,7 +50,21 @@ history_expect(16, $history(channel:'walk_in')['summary']['orders'], 'Walk-ins i
 history_expect(1, $history(archive:'archived')['summary']['orders'], 'Counter receipts are not falsely archived');
 history_expect(30, $history(archive:'all')['summary']['orders'], 'All records includes archived dashboard records');
 history_expect(1, $history(status:'IS_LISTED')['summary']['orders'], 'Unfulfilled filter excludes completed counter receipts');
-history_expect(28, $history(status:'FULFILLED')['summary']['orders'], 'Fulfilled includes counter sales');
+history_expect(27, $history(status:'FULFILLED')['summary']['orders'], 'Fulfilled includes counter sales');
+history_expect(25, $history(status:'paid')['summary']['orders'], 'Paid combines counter and dashboard sales but excludes cancellations');
+history_expect(2, $history(status:'unpaid')['summary']['orders'], 'Unpaid includes pay-later and empty legacy payment states');
+history_expect(2, $history(status:'canceled')['summary']['orders'], 'Canceled includes lifecycle cancellations even when the stored payment is paid');
+history_expect(40, $history(status:'paid')['summary']['item_count'], 'Paid units count dashboard and counter items');
+history_expect(1, $history(status:'paid', archive:'archived')['summary']['orders'], 'Payment and archive filters combine');
+history_expect(16, $history(status:'paid', channel:'walk_in')['summary']['orders'], 'Paid walk-ins include dashboard and counter sales');
+history_expect(0, $history(status:'unpaid', channel:'walk_in')['summary']['orders'], 'Paid counter invoices never appear in Unpaid');
+history_expect(15, $history(status:'paid', query:'COFFEE')['summary']['orders'], 'Payment and item search combine');
+$paidKeys = [];
+for ($page = 1; $page <= 3; $page++) foreach ($history($page, status:'paid')['orders'] as $order) {
+    history_expect('paid', $order['payment_status'], 'Paid filter matches the displayed payment state');
+    $paidKeys[] = $order['source'] . ':' . $order['order_id'];
+}
+history_expect(25, count(array_unique($paidKeys)), 'Payment filtering paginates all matching records without duplication');
 history_expect(15, $history(query:'COFFEE')['summary']['orders'], 'SKU search includes invoice items');
 history_expect(14, $history(query:'Tea')['summary']['orders'], 'Product search includes dashboard items');
 history_expect(1, $history(query:'C15')['summary']['orders'], 'Invoice number search');

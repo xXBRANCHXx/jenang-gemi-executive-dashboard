@@ -186,6 +186,15 @@ function jg_whatsapp_payment_status(array $row): string
     return in_array($status, ['paid', 'unpaid', 'canceled'], true) ? $status : 'unpaid';
 }
 
+/** Match the displayed payment state, including cancellation and legacy empty values. */
+function jg_whatsapp_history_status_sql(string $status): string
+{
+    if (!in_array($status, ['PAID', 'UNPAID', 'CANCELED'], true)) return 'o.status = :status';
+    return "(CASE WHEN UPPER(TRIM(o.status)) = 'CANCELLED' THEN 'canceled'
+        WHEN LOWER(TRIM(o.payment_status)) IN ('paid', 'canceled') THEN LOWER(TRIM(o.payment_status))
+        ELSE 'unpaid' END) = LOWER(:status)";
+}
+
 /** @return array{hide_charts:bool,hide_financials:bool,restore_stock:bool} */
 function jg_whatsapp_archive_options(array $payload): array
 {
@@ -1200,7 +1209,7 @@ function jg_whatsapp_order_history(PDO $pdo, int $page = 1, int $perPage = 50, s
     if ($includeWalkIns) {
         $skuPdo = null;
         $warnings = [];
-        if ($channel !== 'whatsapp' && $archive !== 'archived' && in_array(strtoupper($status), ['', 'FULFILLED'], true)) {
+        if ($channel !== 'whatsapp' && $archive !== 'archived' && in_array(strtoupper(trim($status)), ['', 'FULFILLED', 'PAID'], true)) {
             try {
                 $config = jg_sku_db_config();
                 $skuPdo = new PDO(
@@ -1222,7 +1231,7 @@ function jg_whatsapp_order_history(PDO $pdo, int $page = 1, int $perPage = 50, s
     $query = trim($query);
     $status = strtoupper(trim($status));
     $archive = strtolower(trim($archive));
-    $allowedStatuses = ['', 'PENDING_PUBLISH', 'PUBLISH_FAILED', 'IS_LISTED', 'IS_BEING_FULFILLED', 'FULFILLED', 'CANCELLED'];
+    $allowedStatuses = ['', 'PAID', 'UNPAID', 'CANCELED', 'PENDING_PUBLISH', 'PUBLISH_FAILED', 'IS_LISTED', 'IS_BEING_FULFILLED', 'FULFILLED', 'CANCELLED'];
     if (!in_array($status, $allowedStatuses, true)) {
         throw new InvalidArgumentException('Choose a valid WhatsApp order status.');
     }
@@ -1253,7 +1262,7 @@ function jg_whatsapp_order_history(PDO $pdo, int $page = 1, int $perPage = 50, s
         ];
     }
     if ($status !== '') {
-        $where[] = 'o.status = :status';
+        $where[] = jg_whatsapp_history_status_sql($status);
         $params[':status'] = $status;
     }
     $whereSql = $where ? ' WHERE ' . implode(' AND ', $where) : '';

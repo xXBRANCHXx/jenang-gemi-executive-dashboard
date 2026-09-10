@@ -8,7 +8,7 @@ function jg_direct_order_history(PDO $pdo, ?PDO $skuPdo, int $page, int $perPage
     $perPage = max(10, min(100, $perPage));
     $query = mb_substr(trim($query), 0, 160);
     $status = strtoupper(trim($status));
-    if (!in_array($status, ['', 'PENDING_PUBLISH', 'PUBLISH_FAILED', 'IS_LISTED', 'IS_BEING_FULFILLED', 'FULFILLED', 'CANCELLED'], true)
+    if (!in_array($status, ['', 'PAID', 'UNPAID', 'CANCELED', 'PENDING_PUBLISH', 'PUBLISH_FAILED', 'IS_LISTED', 'IS_BEING_FULFILLED', 'FULFILLED', 'CANCELLED'], true)
         || !in_array($archive, ['active', 'archived', 'all'], true)
         || !in_array($channel, ['all', 'whatsapp', 'walk_in'], true)) {
         throw new InvalidArgumentException('Choose valid history filters.');
@@ -27,12 +27,12 @@ function jg_direct_order_history(PDO $pdo, ?PDO $skuPdo, int $page, int $perPage
         $sources['dashboard']['params'][':channel'] = $channel;
     }
     if ($status !== '') {
-        $sources['dashboard']['where'][] = 'o.status = :status';
+        $sources['dashboard']['where'][] = jg_whatsapp_history_status_sql($status);
         $sources['dashboard']['params'][':status'] = $status;
     }
     // Counter invoices are completed sales, not dashboard drafts or archived orders.
     // WhatsApp copies printed in Store Ops must not be counted a second time.
-    if ($skuPdo && $channel !== 'whatsapp' && $archive !== 'archived' && in_array($status, ['', 'FULFILLED'], true)) {
+    if ($skuPdo && $channel !== 'whatsapp' && $archive !== 'archived' && in_array($status, ['', 'FULFILLED', 'PAID'], true)) {
         $sources['counter'] = [
             'pdo' => $skuPdo, 'table' => 'store_ops_walkin_invoices', 'key' => 'invoice_number', 'number' => 'invoice_number',
             'items' => 'store_ops_walkin_invoice_items', 'foreign' => 'invoice_number',

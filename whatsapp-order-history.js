@@ -30,11 +30,12 @@ document.addEventListener('DOMContentLoaded', () => {
     archiveConfirm: root.querySelector('[data-history-archive-confirm]')
   };
   const initialParams = new URLSearchParams(window.location.search);
+  const initialStatus = (initialParams.get('status') || '').toLowerCase().replace('cancelled', 'canceled');
   const state = {
     page: Math.max(1, Number(initialParams.get('page') || 1)),
     perPage: 50,
     query: initialParams.get('query') || '',
-    status: initialParams.get('status') || '',
+    status: ['paid', 'unpaid', 'canceled'].includes(initialStatus) ? initialStatus : '',
     archive: ['active', 'archived', 'all'].includes(initialParams.get('archive')) ? initialParams.get('archive') : 'active',
     channel: ['all', 'whatsapp', 'walk_in'].includes(initialParams.get('channel')) ? initialParams.get('channel') : 'all',
     orders: [],
@@ -63,7 +64,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
   const statusLabel = (status) => ({
     PENDING_PUBLISH: 'Sending', PUBLISH_FAILED: 'Needs retry', IS_LISTED: 'Listed',
-    IS_BEING_FULFILLED: 'Processing', FULFILLED: 'Fulfilled', CANCELLED: 'Cancelled'
+    IS_BEING_FULFILLED: 'Processing', FULFILLED: 'Fulfilled', CANCELLED: 'Canceled'
   }[status] || String(status || 'Unknown').replaceAll('_', ' '));
   const statusClass = (status) => String(status || 'unknown').toLowerCase().replaceAll('_', '-');
   const paymentLabel = (order) => {
@@ -123,7 +124,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const archiveAction = order.can_archive === true
         ? `<button type="button" class="whatsapp-history-icon-btn is-archive" data-history-archive="${escapeHtml(order.order_id)}" aria-label="Archive ${escapeHtml(order.order_id)}" title="Archive order"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M5 7l1 13h12l1-13M9 11h6M8 4h8l1 3H7l1-3Z"/></svg></button>`
         : order.archived ? '<span class="whatsapp-history-archived-mark" title="Archived"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M5 7l1 13h12l1-13M9 11h6M8 4h8l1 3H7l1-3Z"/></svg></span>' : '';
-      return `<tr class="whatsapp-history-row${order.archived ? ' is-archived' : ''}" tabindex="0" role="link" data-order-url="${escapeHtml(url)}" ${isCounter ? `data-counter-invoice="${escapeHtml(order.order_id)}"` : ''} aria-label="Open ${escapeHtml(order.order_id)}">
+      return `<tr class="whatsapp-history-row${paymentStatus === 'canceled' || order.status === 'CANCELLED' ? ' is-canceled' : ''}${order.archived ? ' is-archived' : ''}" tabindex="0" role="link" data-order-url="${escapeHtml(url)}" ${isCounter ? `data-counter-invoice="${escapeHtml(order.order_id)}"` : ''} aria-label="Open ${escapeHtml(order.order_id)}">
         <td><a href="${escapeHtml(url)}"><strong>${escapeHtml(order.order_id)}</strong><small>${escapeHtml(`${channelLabel}${order.archived ? ` · Archived ${formatDate(order.archived_at)}` : order.label_original_name ? ` · ${order.label_original_name}` : ''}`)}</small></a></td>
         <td><strong>${escapeHtml(order.customer?.name || (order.sales_channel === 'walk_in' ? 'Walk-in customer' : 'Customer'))}</strong><small>${escapeHtml(contact)}</small></td>
         <td><span class="whatsapp-history-status ${escapeHtml(statusClass(order.status))}">${escapeHtml(statusLabel(order.status))}</span></td>
@@ -275,6 +276,7 @@ document.addEventListener('DOMContentLoaded', () => {
       state.paymentOrderId = '';
       refs.paymentDialog?.close?.();
       window.refreshDirectOrderUnpaidIndicator?.();
+      if (state.status) await loadHistory();
     } catch (error) {
       if (refs.paymentError) {
         refs.paymentError.textContent = error instanceof Error ? error.message : 'Payment could not be confirmed.';

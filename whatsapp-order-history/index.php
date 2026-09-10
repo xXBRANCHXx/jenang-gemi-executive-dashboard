@@ -29,7 +29,7 @@ $historyJsVersion = (string) @filemtime(dirname(__DIR__) . '/whatsapp-order-hist
     <link rel="stylesheet" href="../whatsapp-order-history.css?v=<?php echo urlencode($historyCssVersion ?: '1'); ?>">
 </head>
 <body class="admin-body is-dashboard is-whatsapp-history-page">
-    <div class="admin-build-badge" aria-label="Dashboard build version">Build exec3.98.19</div>
+    <div class="admin-build-badge" aria-label="Dashboard build version">Build exec3.98.20</div>
     <div class="admin-app admin-app-suite" data-whatsapp-order-history data-endpoint="../api/whatsapp-orders/">
         <div class="admin-backdrop admin-backdrop-a"></div>
         <div class="admin-backdrop admin-backdrop-b"></div>
@@ -90,12 +90,9 @@ $historyJsVersion = (string) @filemtime(dirname(__DIR__) . '/whatsapp-order-hist
                                 <span>Status</span>
                                 <select data-history-status-filter>
                                     <option value="">All statuses</option>
-                                    <option value="PENDING_PUBLISH">Sending</option>
-                                    <option value="PUBLISH_FAILED">Needs retry</option>
-                                    <option value="IS_LISTED">Listed</option>
-                                    <option value="IS_BEING_FULFILLED">Processing</option>
-                                    <option value="FULFILLED">Fulfilled</option>
-                                    <option value="CANCELLED">Cancelled</option>
+                                    <option value="paid">Paid</option>
+                                    <option value="unpaid">Unpaid</option>
+                                    <option value="canceled">Canceled</option>
                                 </select>
                             </label>
                             <label>
@@ -115,7 +112,7 @@ $historyJsVersion = (string) @filemtime(dirname(__DIR__) . '/whatsapp-order-hist
                                     <tr>
                                         <th>Order</th>
                                         <th>Customer</th>
-                                        <th>Status</th>
+                                        <th>Fulfillment</th>
                                         <th>Items</th>
                                         <th>Merchandise</th>
                                         <th>Shipping</th>

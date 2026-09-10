@@ -339,9 +339,13 @@
 }
 
 .whatsapp-history-payment-status.is-paid {
-  border-color: color-mix(in srgb, #16a34a 36%, var(--admin-border));
-  color: #16a34a;
-  background: color-mix(in srgb, #16a34a 8%, var(--admin-surface));
+  border-color: currentColor;
+  color: var(--history-paid-color, #4ade80);
+  background: transparent;
+}
+
+:root[data-admin-theme='light'] {
+  --history-paid-color: #15803d;
 }
 
 .whatsapp-history-payment-status.is-canceled {
@@ -350,18 +354,22 @@
   background: color-mix(in srgb, #dc2626 7%, var(--admin-surface));
 }
 
+.whatsapp-history-payment-status.is-unpaid,
 .whatsapp-history-pay-btn {
-  border-color: color-mix(in srgb, #dc2626 45%, var(--admin-border));
-  color: #dc2626;
-  background: color-mix(in srgb, #dc2626 7%, var(--admin-surface));
+  border-color: #2563eb;
+  color: #fff;
+  background: #2563eb;
+}
+
+.whatsapp-history-pay-btn {
   cursor: pointer;
   transition: border-color .16s ease, background .16s ease, transform .16s ease;
 }
 
 .whatsapp-history-pay-btn:hover,
 .whatsapp-history-pay-btn:focus-visible {
-  border-color: #dc2626;
-  background: color-mix(in srgb, #dc2626 12%, var(--admin-surface));
+  border-color: #1d4ed8;
+  background: #1d4ed8;
   transform: translateY(-1px);
 }
 
@@ -860,8 +868,28 @@ body:has(#admin-rail-nav.ed-nav) .whatsapp-history-invoice-dialog{width:min(780p
 @media(max-width:600px){body:has(#admin-rail-nav.ed-nav) .whatsapp-history-hero{align-items:flex-start;flex-direction:column}body:has(#admin-rail-nav.ed-nav) .whatsapp-history-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}body:has(#admin-rail-nav.ed-nav) .whatsapp-history-metrics article{padding:16px 8px}body:has(#admin-rail-nav.ed-nav) .whatsapp-history-filters{grid-template-columns:1fr}}
 
 body:has(#admin-rail-nav.ed-nav) :is(.whatsapp-history-status,.whatsapp-history-payment-status,.whatsapp-history-pay-btn){background:transparent!important;border-color:var(--ui-border)!important;border-radius:5px;font-weight:500;text-transform:none;letter-spacing:0}
-body:has(#admin-rail-nav.ed-nav) :is(.whatsapp-history-status.fulfilled,.whatsapp-history-payment-status.is-paid,.whatsapp-history-pay-btn){color:var(--ui-accent)!important}
-body:has(#admin-rail-nav.ed-nav) .whatsapp-history-pay-btn{border-color:var(--ui-accent)!important;cursor:pointer}
-body:has(#admin-rail-nav.ed-nav) .whatsapp-history-pay-btn:hover{background:var(--ui-hover)!important}
-:root[data-admin-theme='light'] body:has(#admin-rail-nav.ed-nav) :is(.whatsapp-history-status.is-listed,.whatsapp-history-status.pending-publish,.whatsapp-history-payment-status.is-unpaid){color:#805400!important}
-:root[data-admin-theme='light'] body:has(#admin-rail-nav.ed-nav) :is(.whatsapp-history-status.cancelled,.whatsapp-history-status.publish-failed,.whatsapp-history-payment-status.is-canceled){color:#b42332!important}
+body:has(#admin-rail-nav.ed-nav) .whatsapp-history-status.fulfilled{color:var(--ui-accent)!important}
+body:has(#admin-rail-nav.ed-nav) .whatsapp-history-payment-status.is-paid{color:var(--history-paid-color,#4ade80)!important;border-color:currentColor!important}
+body:has(#admin-rail-nav.ed-nav) :is(.whatsapp-history-payment-status.is-unpaid,.whatsapp-history-pay-btn){color:#fff!important;background:#2563eb!important;border-color:#2563eb!important}
+body:has(#admin-rail-nav.ed-nav) .whatsapp-history-pay-btn:is(:hover,:focus-visible){background:#1d4ed8!important;border-color:#1d4ed8!important}
+:root[data-admin-theme='light'] body:has(#admin-rail-nav.ed-nav) :is(.whatsapp-history-status.is-listed,.whatsapp-history-status.pending-publish){color:#805400!important}
+:root[data-admin-theme='light'] body:has(#admin-rail-nav.ed-nav) .whatsapp-history-status.publish-failed{color:#b42332!important}
+
+/* Keep the complete canceled row red, including hover and archived records. */
+body.is-whatsapp-history-page:has(#admin-rail-nav.ed-nav) .whatsapp-history-table tbody .whatsapp-history-row.is-canceled {
+  background: #7f1d1d !important;
+}
+body.is-whatsapp-history-page:has(#admin-rail-nav.ed-nav) .whatsapp-history-table tbody .whatsapp-history-row.is-canceled:is(:hover, :focus-visible) {
+  background: #991b1b !important;
+}
+body.is-whatsapp-history-page:has(#admin-rail-nav.ed-nav) .whatsapp-history-row.is-canceled :is(td, a, strong) {
+  color: #fff !important;
+}
+body.is-whatsapp-history-page:has(#admin-rail-nav.ed-nav) .whatsapp-history-row.is-canceled :is(small, .whatsapp-history-open, .whatsapp-history-icon-btn, .whatsapp-history-archived-mark) {
+  color: #fecaca !important;
+}
+body.is-whatsapp-history-page:has(#admin-rail-nav.ed-nav) .whatsapp-history-row.is-canceled :is(.whatsapp-history-status, .whatsapp-history-payment-status) {
+  color: #fff !important;
+  border-color: #fca5a5 !important;
+  background: transparent !important;
+}

@@ -18,7 +18,7 @@ const dashboardScript = fs.readFileSync(path.join(root, 'admin.js'), 'utf8');
 
 assert.match(historyPage, /All direct-order records[\s\S]*?data-history-summary="orders"[\s\S]*?data-history-body/, 'History page must expose a complete ledger and summary.');
 assert.match(historyPage, /data-history-search[\s\S]*?data-history-status-filter[\s\S]*?data-history-previous[\s\S]*?data-history-next/, 'History ledger must support search, status filters, and pagination.');
-assert.match(historyPage, /value="IS_LISTED"[\s\S]*?value="IS_BEING_FULFILLED">Processing[\s\S]*?value="FULFILLED">Fulfilled[\s\S]*?value="CANCELLED">Cancelled/, 'History status filters must expose the full Listed, Processing, Fulfilled, and Cancelled lifecycle.');
+assert.match(historyPage, /value="paid">Paid[\s\S]*?value="unpaid">Unpaid[\s\S]*?value="canceled">Canceled/, 'History status filter must expose payment states.');
 assert.match(historyPage, /<th>Payment<\/th>[\s\S]*?data-history-payment-dialog[\s\S]*?name="payment_method" value="cash"[\s\S]*?name="payment_method" value="bank"/, 'History must expose payment status and a Cash or Bank confirmation dialog.');
 assert.match(historyPage, /name="payment_method" value="bank" checked/, 'Bank must be the default when a Pay Later order is marked paid.');
 assert.match(dashboardPage, /data-order-payment-form[\s\S]*?name="payment_method" value="bank" checked/, 'The central Orders payment dialog must also default to Bank.');
