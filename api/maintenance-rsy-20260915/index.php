@@ -38,7 +38,9 @@ try {
         echo json_encode(rsy_correct(is_array($body) ? $body : []), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
         exit;
     }
-    $result = ['ok' => true, 'order_id' => 'PO26091504BF18F3', 'databases' => []];
+    $inspectionOrder = (string) ($_GET['order_id'] ?? 'PO26091504BF18F3');
+    if (!in_array($inspectionOrder, ['PO26091504BF18F3', 'PO26091560AC7D27'], true)) throw new RuntimeException('Unsupported order.');
+    $result = ['ok' => true, 'order_id' => $inspectionOrder, 'databases' => []];
     foreach (['partner' => 'partner_', 'inventory' => 'sku_', 'analytics' => ''] as $label => $prefix) {
         $pdo = rsy_db($prefix);
         $tables = $pdo->query('SELECT TABLE_NAME, COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() ORDER BY TABLE_NAME, ORDINAL_POSITION')->fetchAll();
@@ -52,8 +54,8 @@ try {
                 if (!in_array($column, ['id', 'order_id', 'source_order_id', 'external_order_id', 'original_order_id', 'order_no', 'reference_no', 'invoice_no', 'reference_id', 'source_reference', 'request_key'], true)
                     || !in_array($type, ['varchar', 'char', 'text'], true)) continue;
                 $filters[] = '`' . $column . '` IN (?, ?)';
-                $args[] = 'PO26091504BF18F3';
-                $args[] = 'PARTNER-PO26091504BF18F3';
+                $args[] = $inspectionOrder;
+                $args[] = 'PARTNER-' . $inspectionOrder;
             }
             if ($filters === []) continue;
             $stmt = $pdo->prepare('SELECT * FROM `' . str_replace('`', '``', $table) . '` WHERE ' . implode(' OR ', $filters) . ' LIMIT 501');
