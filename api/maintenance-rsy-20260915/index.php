@@ -11,9 +11,9 @@ if (time() >= strtotime('2026-09-16 00:00:00 UTC')) {
     http_response_code(410);
     exit('{"error":"Maintenance window closed."}');
 }
-if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') {
+if (!in_array($_SERVER['REQUEST_METHOD'] ?? '', ['GET', 'POST'], true)) {
     http_response_code(405);
-    exit('{"error":"Read only."}');
+    exit('{"error":"Method not allowed."}');
 }
 
 function rsy_db(string $prefix): PDO
@@ -31,6 +31,13 @@ function rsy_db(string $prefix): PDO
 }
 
 try {
+    if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+        jg_admin_require_csrf_json();
+        require_once __DIR__ . '/correction.php';
+        $body = json_decode((string) file_get_contents('php://input'), true, 512, JSON_THROW_ON_ERROR);
+        echo json_encode(rsy_correct(is_array($body) ? $body : []), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
+        exit;
+    }
     $result = ['ok' => true, 'order_id' => 'PO26091504BF18F3', 'databases' => []];
     foreach (['partner' => 'partner_', 'inventory' => 'sku_', 'analytics' => ''] as $label => $prefix) {
         $pdo = rsy_db($prefix);
