@@ -42,7 +42,7 @@ try {
             $filters = [];
             $args = [];
             foreach ($columns as $column => $type) {
-                if (!in_array($column, ['id', 'order_id', 'source_order_id', 'external_order_id', 'reference_id', 'source_reference'], true)
+                if (!in_array($column, ['id', 'order_id', 'source_order_id', 'external_order_id', 'original_order_id', 'order_no', 'reference_no', 'invoice_no', 'reference_id', 'source_reference', 'request_key'], true)
                     || !in_array($type, ['varchar', 'char', 'text'], true)) continue;
                 $filters[] = '`' . $column . '` IN (?, ?)';
                 $args[] = 'PO26091504BF18F3';
@@ -59,6 +59,26 @@ try {
         }
         if ($label === 'inventory') {
             $db['sku'] = $pdo->query('SELECT * FROM sku_skus WHERE sku = "010155000006"')->fetch();
+            $db['stock_group'] = $pdo->query('SELECT sku, volume, astra, current_stock FROM sku_skus WHERE brand_id = "brand-zero-9ea80a" AND unit_id = "unit-ml-b4f65a" AND product_id = "brand-zero-9ea80a-product-maple-topping-7d2f06" AND flavor_id = "brand-zero-9ea80a-flavor-unflavored" AND astra = 550')->fetchAll();
+        }
+        if ($label === 'partner') {
+            foreach (['partner_weekly_bills', 'partner_weekly_bill_items', 'partner_weekly_bill_payments', 'partner_weekly_bill_disputes', 'partner_weekly_bill_files', 'partner_return_adjustments'] as $table) {
+                $fields = array_keys($grouped[$table]);
+                $select = implode(', ', array_map(static fn(string $f): string => $f === 'file_data' ? 'LENGTH(file_data) AS file_data_bytes' : '`' . $f . '`', $fields));
+                $stmt = $pdo->prepare('SELECT ' . $select . ' FROM `' . $table . '` WHERE bill_id = ?');
+                $stmt->execute(['PB-CW-20260914-10EDA9208578']);
+                $db['billing'][$table] = $stmt->fetchAll();
+            }
+        }
+        $cfg = jg_dashboard_load_local_config();
+        foreach (['partner_' => 'partner_orders', 'sku_' => 'sku_skus', '' => 'partner_order_payments'] as $other => $testTable) {
+            try {
+                $schema = str_replace('`', '``', $cfg[$other . 'db_name']);
+                $pdo->query('SELECT 1 FROM `' . $schema . '`.`' . $testTable . '` LIMIT 0');
+                $db['cross_database_access'][$other ?: 'analytics'] = true;
+            } catch (Throwable) {
+                $db['cross_database_access'][$other ?: 'analytics'] = false;
+            }
         }
         $result['databases'][$label] = $db;
     }
