@@ -33671,9 +33671,8 @@ button.admin-accounting-metric {
 }
 
 .admin-ad-view-credits > article {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
   min-height: 44px;
   padding: 7px 10px;
@@ -33735,9 +33734,8 @@ button.admin-accounting-metric {
 }
 
 .admin-ad-view-credit-breakdown {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
   gap: 8px;
   min-width: 0;
 }
@@ -33745,8 +33743,9 @@ button.admin-accounting-metric {
 .admin-ad-view-credit-breakdown > span {
   display: grid;
   gap: 2px;
-  min-width: 92px;
+  min-width: 0;
   padding-left: 9px;
+  overflow-wrap: anywhere;
   border-left: 1px solid var(--admin-border);
 }
 
@@ -33970,6 +33969,7 @@ button.admin-accounting-metric {
   }
 
   .admin-ad-view-credit-breakdown {
+    grid-template-columns: minmax(0, 1fr);
     gap: 7px;
   }
 

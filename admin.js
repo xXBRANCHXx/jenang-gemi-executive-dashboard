@@ -611,8 +611,7 @@ const OVERVIEW_SNAPSHOT_REFRESH_INTERVAL_MS = 60 * 1000;
 const AD_VIEW_AUTO_SYNC_INTERVAL_MS = 5 * 60 * 1000;
 const AD_VIEW_ATTRIBUTION_REFRESH_DAYS = 8;
 const AD_VIEW_PREFERENCES_STORAGE_KEY = 'jg-dashboard-ad-view-preferences-v1';
-const AUTO_MARKETPLACE_REFRESH_MIN_MS = 5 * 60 * 1000;
-const AUTO_MARKETPLACE_REFRESH_RETRY_MS = 60 * 1000;
+const AUTO_MARKETPLACE_REFRESH_RETRY_MS = 5 * 60 * 1000;
 const AUTO_MARKETPLACE_REFRESH_STORAGE_KEY = 'jg-dashboard-auto-marketplace-refresh-at-v1';
 const HOME_CACHE_PREFIX = 'jg-dashboard-home-cache-v1';
 const WALLET_CACHE_STORAGE_KEY = 'jg-dashboard-wallet-cache-v1';
@@ -927,7 +926,7 @@ const formatPageLabel = (pagePath = '') => {
 const normalizeSourceKey = (value) => String(value || '').trim().toLowerCase();
 
 const HIDDEN_HOME_SOURCES = new Set(['internal', 'direct']);
-const OVERVIEW_DATA_CACHE_VERSION = 17;
+const OVERVIEW_DATA_CACHE_VERSION = 18;
 const DAILY_DATA_CACHE_VERSION = 3;
 const OVERVIEW_CACHE_PREFIX = `jg-overview-summary-v${OVERVIEW_DATA_CACHE_VERSION}`;
 const OVERVIEW_LEGEND_PREVIEW_LIMIT = 5;
@@ -2779,6 +2778,7 @@ document.addEventListener('DOMContentLoaded', () => {
     },
 	    marketplaceRefresh: {
 	      loading: false,
+	      syncing: false,
 	      error: '',
 	      lastAutoAttemptAt: 0
 	    },
@@ -10737,13 +10737,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	  const applyOverviewData = (data, options = {}) => {
 	    if (!data || typeof data !== 'object') return false;
+    if (data.context_only || data.meta?.summary_complete === false) return false;
     if (state.marketplaceRefresh.loading && !options.marketplaceRefresh) return false;
     const current = state.overview.data;
     if (current && String(current.year) === String(data.year)
-      && overviewSnapshotTime(data) < overviewSnapshotTime(current)) return false;
+      && (overviewSnapshotTime(data) < overviewSnapshotTime(current)
+        || (Date.parse(data.meta?.snapshot_at || '') || overviewSnapshotTime(data))
+          < (Date.parse(current.meta?.snapshot_at || '') || overviewSnapshotTime(current)))) return false;
     if (options.verified) {
       state.overview.verifiedAt = Date.now();
-      state.marketplaceRefresh.error = '';
+      state.marketplaceRefresh.error = data.meta?.refresh_error || '';
     }
 	    state.overview.loadedAt = options.loadedAt || Date.now();
 	    if (state.activeView === 'overview') {
@@ -10882,7 +10885,7 @@ document.addEventListener('DOMContentLoaded', () => {
           cacheBust: Boolean(options.forceRefresh || options.force)
         })),
         state.overview.customRange.active && state.overview.customRange.startDate && state.overview.customRange.endDate
-          ? requestOrderFacts(state.overview.customRange.startDate, state.overview.customRange.endDate).catch(() => ({ orders: [] }))
+          ? requestOrderFacts(state.overview.customRange.startDate, state.overview.customRange.endDate)
           : Promise.resolve(null)
       ]);
     } catch (error) {
@@ -10893,6 +10896,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (customData) {
       state.overview.customRange.rows = Array.isArray(customData.orders) ? customData.orders : [];
 	    }
+    if (data?.context_only || data?.meta?.summary_complete === false || data?.ok === false) {
+      throw new Error('The complete sales summary is unavailable. Keeping the last complete update.');
+    }
 	    if (applyOverviewData(data, { verified: true })) writeOverviewCache(state.overview.year, data);
 	  };
 
@@ -10933,42 +10939,49 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const runMarketplaceRefresh = async (options = {}) => {
     const interactive = Boolean(options.interactive);
-    if (state.marketplaceRefresh.loading) return false;
+    const busyKey = interactive ? 'loading' : 'syncing';
+    if (state.marketplaceRefresh.loading || (!interactive && state.marketplaceRefresh.syncing)) return false;
     if (isDashboardMemoryPressure()) {
       await releaseInactiveViewsForMemory(state.activeView);
       if (isDashboardMemoryPressure() && !interactive && state.activeView !== 'overview') return false;
     }
-    if (state.marketplaceRefresh.loading) return false;
+    if (state.marketplaceRefresh.loading || (!interactive && state.marketplaceRefresh.syncing)) return false;
     const year = state.overview.year;
-    state.marketplaceRefresh.loading = true;
+    state.marketplaceRefresh[busyKey] = true;
     state.marketplaceRefresh.error = '';
-    // Invalidate reads started before this sync, including their late errors.
-    beginRequest('overview');
+    // Manual reads supersede old reads. Background source recovery must never
+    // block snapshot polling or the user's Refresh View action.
+    if (interactive) beginRequest('overview');
     renderOverviewFreshness();
     try {
       const data = await requestJson(buildSalesUrl(year, {
-        manualRefresh: true,
+        manualRefresh: !interactive,
+        refresh: interactive,
         cacheBust: true
-      }), { method: 'POST', timeoutMs: 90000 });
-      if (!data?.ok) throw new Error(data?.message || data?.error || 'The refresh did not return dashboard data.');
+      }), { method: interactive ? 'GET' : 'POST', timeoutMs: interactive ? 30000 : 90000 });
+      if (!data?.ok || data.context_only || data.meta?.summary_complete === false) {
+        throw new Error(data?.message || data?.error || 'The complete sales summary is unavailable. Keeping the last complete update.');
+      }
       if (state.overview.year === year) {
-        if (applyOverviewData(data, { verified: true, marketplaceRefresh: true })) {
+        if (applyOverviewData(data, { verified: true, marketplaceRefresh: interactive })) {
           writeOverviewCache(year, data);
         }
       } else {
         writeOverviewCache(year, data);
       }
-      await refreshOverviewHourlyRows(null, { repair: true }).catch(() => {});
+      // Secondary panels have their own loading states. They must not hold the
+      // main refresh button or prevent the next summary read from completing.
+      refreshOverviewHourlyRows(null, { repair: !interactive }).catch(() => {});
       if (state.activeView === 'overview') {
-        await loadOverviewLocationRows({ force: true, incremental: true, repair: true }).catch(() => {});
+        loadOverviewLocationRows({ force: true, incremental: true, repair: !interactive }).catch(() => {});
       }
-      await syncActiveOrderViewsAfterRepair();
+      if (!interactive) syncActiveOrderViewsAfterRepair().catch(() => {});
       return true;
     } catch (error) {
       state.marketplaceRefresh.error = error.message || 'Unable to sync marketplace data.';
       return false;
     } finally {
-      state.marketplaceRefresh.loading = false;
+      state.marketplaceRefresh[busyKey] = false;
       renderOverviewFreshness();
       if (state.overview.year !== year) {
         loadOverviewSafely({ force: true, preferStale: false }).catch(() => {});
@@ -10994,27 +11007,28 @@ document.addEventListener('DOMContentLoaded', () => {
         background: true,
         skipHourly: true
       });
-      // A successful GET can still contain the server's stale fallback. Repair
-      // the source automatically instead of repeatedly repainting that fallback.
-      const synced = await runAutomaticMarketplaceRefresh();
-      return loaded || synced;
+      // Recover an unhealthy source independently so a long upstream request
+      // cannot hold the snapshot poll open or suppress later reads.
+      runAutomaticMarketplaceRefresh().catch(() => {});
+      return loaded;
     })().finally(() => { overviewSnapshotRefreshPromise = null; });
     return overviewSnapshotRefreshPromise;
   };
 
   const runAutomaticMarketplaceRefresh = async (options = {}) => {
-    if (document.hidden || !isBrowserOnline() || state.marketplaceRefresh.loading) return false;
+    if (document.hidden || !isBrowserOnline() || state.marketplaceRefresh.loading || state.marketplaceRefresh.syncing) return false;
     const now = Date.now();
     const recordedAttemptAt = Math.max(state.marketplaceRefresh.lastAutoAttemptAt || 0, readAutoMarketplaceRefreshAt());
     // A clock correction must not disable recovery until a future timestamp.
     const lastAttemptAt = recordedAttemptAt <= now ? recordedAttemptAt : 0;
     const data = state.overview.data;
     const syncStatus = data?.sync_status;
-    const generatedAt = overviewSnapshotTime(data);
-    const needsRecovery = Boolean(options.force || state.marketplaceRefresh.error
-      || !generatedAt || now - generatedAt >= 120000
-      || syncStatus?.fresh !== true || syncStatus?.status !== 'ok');
-    const minimumInterval = needsRecovery ? AUTO_MARKETPLACE_REFRESH_RETRY_MS : AUTO_MARKETPLACE_REFRESH_MIN_MS;
+    // A summary timestamp describes a snapshot, not a failed marketplace sync.
+    // Healthy scheduled ingestion does not need another browser-triggered sync.
+    const needsRecovery = Boolean(options.force || (!data?.meta?.refresh_error && syncStatus
+      && (syncStatus.fresh === false || ['partial', 'failed', 'error'].includes(syncStatus.status))));
+    if (!needsRecovery) return false;
+    const minimumInterval = AUTO_MARKETPLACE_REFRESH_RETRY_MS;
     // Even stale/failed results obey the retry floor across tabs.
     if (lastAttemptAt > 0 && now - lastAttemptAt < minimumInterval) return false;
     writeAutoMarketplaceRefreshAt(now);
@@ -13067,10 +13081,9 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const loadOverviewSafely = async (options = {}) => {
-    const lifecycleRequest = loadCustomerLifecycle(options).catch(() => null);
     try {
       await loadOverview(options);
-      await lifecycleRequest;
+      if (!options.skipHourly) loadCustomerLifecycle(options).catch(() => null);
       return true;
     } catch (error) {
       state.marketplaceRefresh.error = error.message || 'Unable to load fresh dashboard data.';

@@ -58,7 +58,7 @@ $sidebarSection = match (true) {
     in_array($requestedView ?? '', ['website', 'site', 'home', 'campaign', 'campaigns', 'landing', 'landing-pages'], true) => 'website',
     default => 'home',
 };
-$dashboardBuildVersion = 'exec3.98.20';
+$dashboardBuildVersion = 'exec3.98.21';
 $adminCssVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.js');
 $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/store-ops.js');
@@ -92,9 +92,11 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
                 <h1>Executive Dashboard</h1>
                 <p>Secure access to traffic, attribution, conversion flow, and operational views across the wider Jenang Gemi admin scope.</p>
             </div>
-            <form method="post" class="admin-login-form" autocomplete="off">
+            <form method="post" class="admin-login-form" autocomplete="on">
+                <label for="username">Account</label>
+                <input id="username" name="username" type="text" autocomplete="username" value="Executive Admin" readonly>
                 <label for="admin_code">Security Code</label>
-                <input id="admin_code" name="admin_code" type="password" inputmode="numeric" pattern="[0-9]*" placeholder="Enter 6-digit security code" required autofocus>
+                <input id="admin_code" name="admin_code" type="password" inputmode="numeric" pattern="[0-9]*" placeholder="Enter 6-digit security code" autocomplete="current-password" required autofocus>
                 <?php if ($hasError): ?>
                     <p class="admin-login-error">Security code tidak valid.</p>
                 <?php endif; ?>
@@ -2140,10 +2142,11 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
     </dialog>
     <dialog class="admin-hard-set-dialog daily-column-remove-dialog" data-daily-column-remove-dialog aria-labelledby="daily-column-remove-title">
         <form method="dialog" data-daily-column-remove-form>
+            <input type="text" name="username" autocomplete="username" value="Executive Admin" hidden>
             <span class="admin-panel-kicker">Protected change</span>
             <h2 id="daily-column-remove-title">Are you sure?</h2>
             <p>Remove <strong data-daily-column-remove-name>this manual column</strong> from the Daily sheet? Enter the Executive Dashboard PIN to confirm.</p>
-            <label><span>Dashboard PIN</span><input type="password" name="pin" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="off" placeholder="Enter 6-digit PIN" data-daily-column-remove-pin required></label>
+            <label><span>Dashboard PIN</span><input type="password" name="pin" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="current-password" placeholder="Enter 6-digit PIN" data-daily-column-remove-pin required></label>
             <p class="admin-form-error" data-daily-column-remove-error hidden></p>
             <div class="admin-modal-actions"><button type="button" class="admin-ghost-btn" data-daily-column-remove-cancel>Keep column</button><button type="submit" class="admin-danger-btn" data-daily-column-remove-submit>Verify PIN &amp; remove</button></div>
         </form>

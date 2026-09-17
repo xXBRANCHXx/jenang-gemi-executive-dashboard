@@ -42,6 +42,10 @@ assert.equal(scope.state.overview.data.totals.orders, 12, 'A failed refresh must
 assert.equal(scope.freshness(newest, { loading: false, error: '' }, now, false, now), 'offline');
 assert.equal(scope.freshness(newest, { loading: false, error: '' }, now, true, now + 121000), 'cached');
 assert.notEqual(scope.freshness({ ...newest, sync_status: { fresh: false, status: 'failed' } }, { loading: false, error: '' }, now, true, now), 'live');
+assert.equal(scope.apply({ ...newest, context_only: true, totals: { orders: 1 } }, { verified: true }), false);
+assert.equal(scope.apply({ ...newest, meta: { summary_complete: false }, totals: { orders: 2 } }, { verified: true }), false);
+assert.equal(scope.state.overview.data.totals.orders, 12, 'An incomplete response must never lower displayed totals.');
+assert.equal(scope.apply({ ...old, meta: { snapshot_at: new Date(now + 1000).toISOString() } }, { verified: true }), false, 'Fresh local enrichment must not revive an older marketplace snapshot.');
 console.log('Overview refresh: pending feedback, cache races, data/timestamp consistency, and honest live status passed.');
 
 (async () => {
@@ -54,7 +58,7 @@ console.log('Overview refresh: pending feedback, cache races, data/timestamp con
     beginRequest: () => ++generation,
     isLatestRequest: (_, token) => token === generation,
     buildSalesUrl: year => `/sales?year=${year}`,
-    requestJson: (_, options = {}) => options.method === 'POST' ? refreshReply.promise : pollReply.promise,
+    requestJson: (_, options = {}) => options.method === 'GET' ? refreshReply.promise : pollReply.promise,
     writeOverviewCache: (year, data) => writes.push({ year, data }),
     refreshOverviewHourlyRows: async () => {},
     loadOverviewLocationRows: async () => {},
@@ -66,8 +70,8 @@ console.log('Overview refresh: pending feedback, cache races, data/timestamp con
   scope.apply(old, { verified: true });
   vm.runInContext(extract('\t  const loadOverview =', '  const readAutoMarketplaceRefreshAt =') + extract('  const runMarketplaceRefresh =', '  const refreshMarketplaceData =') + '\nthis.poll = loadOverview; this.refresh = runMarketplaceRefresh;', scope);
   const poll = scope.poll({ force: true, skipHourly: true });
-  const refresh = scope.refresh({ interactive: false });
-  assert.equal(scope.overviewRefs.refreshLabel.textContent, 'Refreshing…', 'An automatic sync must not leave a deceptively idle refresh button.');
+  const refresh = scope.refresh({ interactive: true });
+  assert.equal(scope.overviewRefs.refreshLabel.textContent, 'Refreshing…', 'A requested snapshot refresh must show its busy state.');
   pollReply.resolve(old); await poll;
   assert.equal(writes.length, 0, 'The pre-refresh poll must not write stale data to either cache.');
   assert.equal(scope.overviewRefs.lastUpdated.textContent, 'Refreshing dashboard data…');
@@ -83,10 +87,33 @@ console.log('Overview refresh: pending feedback, cache races, data/timestamp con
   scope.releaseInactiveViewsForMemory = () => memoryRelease.promise;
   scope.requestJson = async () => { memorySyncs++; return { ...newest, ok: true }; };
   const automatic = scope.refresh({ interactive: false });
-  const simultaneous = scope.refresh({ interactive: true });
+  const simultaneous = scope.refresh({ interactive: false });
   memoryRelease.resolve();
   assert.equal(await automatic, true, 'Memory pressure must not silently disable sync of the visible Overview.');
   assert.equal(await simultaneous, false, 'Memory cleanup must not allow simultaneous syncs to pass the loading guard.');
   assert.equal(memorySyncs, 1);
-  console.log('Overview in-flight poll, automatic refresh, and memory cleanup races: passed.');
+  scope.isDashboardMemoryPressure = () => false;
+  const secondary = deferred();
+  scope.refreshOverviewHourlyRows = () => secondary.promise;
+  scope.loadOverviewLocationRows = () => secondary.promise;
+  scope.syncActiveOrderViewsAfterRepair = () => secondary.promise;
+  let requestOptions, urlOptions;
+  scope.buildSalesUrl = (_, options) => { urlOptions = options; return '/sales'; };
+  scope.requestJson = async (_, options) => { requestOptions = options; return { ...newest, ok: true }; };
+  assert.equal(await scope.refresh({ interactive: true }), true);
+  assert.equal(requestOptions.method, 'GET', 'Refresh View must read a snapshot instead of starting a marketplace sync.');
+  assert.equal(urlOptions.refresh, true);
+  assert.equal(urlOptions.manualRefresh, false);
+  assert.equal(scope.overviewRefs.refreshButton.disabled, false, 'Slow secondary panels must not hold the refresh indicator.');
+  secondary.resolve();
+  const sourceSync = deferred();
+  scope.requestJson = async (_, options) => options.method === 'POST' ? sourceSync.promise : { ...newest, ok: true };
+  const recovery = scope.refresh({ interactive: false });
+  assert.equal(scope.state.marketplaceRefresh.syncing, true);
+  assert.equal(scope.overviewRefs.refreshButton.disabled, false, 'Background ingestion must not disable Refresh View.');
+  assert.equal(await scope.refresh({ interactive: true }), true, 'A snapshot read must work while the source sync is pending.');
+  assert.equal(scope.state.marketplaceRefresh.syncing, true, 'A read must not clear the independent source-sync lock.');
+  sourceSync.resolve({ ...newest, ok: true }); await recovery;
+  assert.equal(scope.state.marketplaceRefresh.syncing, false);
+  console.log('Overview in-flight poll, snapshot refresh, secondary-panel stalls, and memory cleanup races: passed.');
 })().catch(error => { console.error(error); process.exitCode = 1; });

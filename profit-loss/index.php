@@ -420,6 +420,7 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/accounting.js');
                             <button type="button" class="admin-ghost-btn" data-accounting-receipt-management-close>Close</button>
                         </div>
                         <form data-accounting-receipt-management-form>
+                            <input type="text" name="username" autocomplete="username" value="Executive Admin" hidden>
                             <input type="hidden" name="receipt_id">
                             <input type="hidden" name="receipt_action">
                             <div class="admin-accounting-removal-warning">
@@ -631,13 +632,14 @@ $pageJsVersion = (string) @filemtime(__DIR__ . '/accounting.js');
                             </button>
                         </div>
                         <form data-accounting-removal-form>
+                            <input type="text" name="username" autocomplete="username" value="Executive Admin" hidden>
                             <input type="hidden" name="kind"><input type="hidden" name="source_id">
                             <div class="admin-accounting-removal-warning">
                                 <strong>This cannot be undone from the screen.</strong>
                                 <p data-accounting-removal-impact>The accounting audit trail will retain the reason for this removal.</p>
                             </div>
                             <label><span>Why should this be removed?</span><textarea name="removal_reason" rows="3" minlength="10" maxlength="1000" placeholder="Explain the mistake and the intended correction…" required></textarea><small>At least 10 characters. This reason is saved in the audit trail.</small></label>
-                            <label><span>Admin login key</span><input type="password" name="admin_key" autocomplete="off" required><small>The same key used to enter the admin dashboard.</small></label>
+                            <label><span>Admin login key</span><input type="password" name="admin_key" autocomplete="current-password" required><small>The same key used to enter the admin dashboard.</small></label>
                             <label><span>Type this exact phrase</span><code data-accounting-removal-phrase>REMOVE TRANSACTION 0</code><input type="text" name="confirmation" autocomplete="off" autocapitalize="characters" spellcheck="false" required></label>
                             <p class="admin-form-error" data-accounting-removal-error hidden></p>
                             <div class="admin-accounting-removal-actions"><button type="button" class="admin-ghost-btn" data-accounting-removal-close>Keep entry</button><button type="submit" class="admin-danger-btn" data-accounting-removal-submit>Remove from normal views</button></div>

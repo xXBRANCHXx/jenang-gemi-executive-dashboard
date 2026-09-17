@@ -125,9 +125,14 @@ geometry under Lucide's ISC license.
 - Marketplace order detail is mirrored into this dashboard's MySQL database through
   `POST /api/orders/?action=webhook` with `JG_ORDER_WEBHOOK_TOKEN` /
   `order_webhook_token` or the existing marketplace setup token. Normal dashboard
-  view reloads read cached/local data. Visible dashboard sessions automatically
-  run a throttled rolling marketplace sync/repair for yesterday and today; the
-  Overview `Refresh view` button runs the same path immediately.
+  view reloads read cached/local data. Overview checks its summary every minute;
+  `Refresh View` reads a fresh snapshot without starting a marketplace sync.
+  Automatic marketplace recovery runs only when ingestion reports stale or failed
+  sources, at most once per five minutes across tabs. Secondary panels finish
+  independently of the main refresh indicator. Sales snapshots are published only
+  after every sales channel loads; a source outage retains the complete previous
+  snapshot and labels it cached. Missing-source and context-only totals are never
+  presented as a successful all-channel summary.
 - Wallet reads the local marketplace order mirror and platform finance ledgers.
   The displayed Wallet balance is the amount currently ready to withdraw. Shopee uses the latest
   marketplace-reported `current_balance`. TikTok / Tokopedia uses completed
@@ -197,3 +202,5 @@ geometry under Lucide's ISC license.
   `Store Ops Returns` as their source. They remain payable and receivable like
   normal POs, while payment is automatically posted to the `Returned damaged
   goods` Accounting category and shown with that category in the activity ledger.
+
+- Executive, SKU, and reauthentication forms identify the account with `autocomplete="username"` beside `current-password` fields, including password-only approval dialogs.

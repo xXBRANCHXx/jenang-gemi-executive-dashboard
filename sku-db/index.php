@@ -64,11 +64,11 @@ $pageBuildVersion = 'sku1.00.01';
                 <h1>Jenang Gemi SKU Database</h1>
                 <p>Admin users can build and push validated SKUs directly. New mappings require Branch approval.</p>
             </div>
-            <form method="post" class="admin-login-form" autocomplete="off">
+            <form method="post" class="admin-login-form" autocomplete="on">
                 <label for="sku_username">Username</label>
-                <input id="sku_username" name="username" type="text" maxlength="160" placeholder="Branch Vincent" required autofocus>
+                <input id="sku_username" autocomplete="username" autocapitalize="none" spellcheck="false" name="username" type="text" maxlength="160" placeholder="Branch Vincent" required autofocus>
                 <label for="sku_password">Password</label>
-                <input id="sku_password" name="password" type="password" maxlength="255" placeholder="Enter password" required>
+                <input id="sku_password" autocomplete="current-password" name="password" type="password" maxlength="255" placeholder="Enter password" required>
                 <?php if ($hasError): ?>
                     <p class="admin-login-error">Username or password is not valid for SKU access.</p>
                 <?php endif; ?>
@@ -393,7 +393,8 @@ $pageBuildVersion = 'sku1.00.01';
                         <h3>Branch-Tier</h3>
                     </div>
                 </div>
-                <form method="post" class="admin-sku-form-grid" autocomplete="off">
+                <form method="post" class="admin-sku-form-grid" autocomplete="on">
+                    <input type="text" name="username" autocomplete="username" value="<?php echo htmlspecialchars(jg_sku_branch_username(), ENT_QUOTES, 'UTF-8'); ?>" hidden>
                     <input type="hidden" name="sku_action" value="unlock_branch_tier">
                     <label class="admin-sku-full-span">
                         <span>Key</span>
@@ -769,6 +770,7 @@ $pageBuildVersion = 'sku1.00.01';
                     </div>
                 </div>
                 <form class="admin-sku-form-grid admin-delete-form-grid" data-delete-form>
+                    <input type="text" name="username" autocomplete="username" value="<?php echo htmlspecialchars(jg_sku_branch_username(), ENT_QUOTES, 'UTF-8'); ?>" hidden>
                     <div class="admin-sku-preview admin-sku-preview-wide">
                         <span class="admin-control-label">Removal target</span>
                         <strong data-delete-summary>Waiting for selection</strong>

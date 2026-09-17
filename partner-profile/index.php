@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require dirname(__DIR__) . '/auth.php';
+require_once dirname(__DIR__) . '/sku-auth.php';
 require_once dirname(__DIR__) . '/admin-nav.php';
 
 if (!jg_admin_is_authenticated()) {
@@ -285,7 +286,8 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
                 </div>
                 <button type="button" class="admin-ghost-btn" data-close-branch-tier-modal>Close</button>
             </div>
-            <form class="partner-branch-tier-form" data-branch-tier-form autocomplete="off">
+            <form class="partner-branch-tier-form" data-branch-tier-form autocomplete="on">
+                <input type="text" name="username" autocomplete="username" value="<?php echo htmlspecialchars(jg_sku_branch_username(), ENT_QUOTES, 'UTF-8'); ?>" hidden>
                 <label>
                     <span>Branch Tier Access password</span>
                     <input type="password" name="branch_password" maxlength="255" autocomplete="current-password" required data-branch-tier-password>

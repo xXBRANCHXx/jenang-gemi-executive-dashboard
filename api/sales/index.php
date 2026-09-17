@@ -16,6 +16,7 @@ require_once dirname(__DIR__, 2) . '/partner-sales-summary.php';
 jg_admin_require_auth();
 
 header('Content-Type: application/json; charset=utf-8');
+header('Cache-Control: no-store');
 
 $action = strtolower(trim((string) ($_GET['action'] ?? 'summary')));
 if ($action === 'sku_catalog') {
@@ -309,7 +310,7 @@ function jg_sales_merge_partner_summary(array $summary, int $year): array
     }
     $pdo = jg_partner_db();
     if (!$pdo instanceof PDO) {
-        return $summary;
+        throw new RuntimeException('Partner sales are temporarily unavailable.');
     }
 
     $facts = jg_partner_sales_summary_facts(jg_partner_sales_summary_orders($pdo, $year), $year);
@@ -490,36 +491,50 @@ function jg_sales_merge_partner_summary(array $summary, int $year): array
 
 function jg_sales_prepare_cached_response(string $baseResponse, int $year, bool $includeAudit): string
 {
-    $decoded = json_decode($baseResponse, true);
-    if (!is_array($decoded)) {
-        return $baseResponse;
-    }
-
+    $completeKey = 'sales-summary-complete-v1-' . $year . ($includeAudit ? '-audit' : '-core');
+    $snapshotAt = (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('Y-m-d\TH:i:s.u\Z');
     try {
+        $decoded = json_decode($baseResponse, true, 512, JSON_THROW_ON_ERROR);
+        if (!is_array($decoded) || empty($decoded['ok']) || !is_array($decoded['months'] ?? null)
+            || !is_array($decoded['totals'] ?? null) || !empty($decoded['context_only'])) {
+            throw new RuntimeException('Marketplace summary is incomplete.');
+        }
+        // Publish only after every channel has loaded. A failed source is not zero sales.
         $decoded = jg_website_merge_sales_summary(analyticsDb(), $decoded, $year);
-    } catch (Throwable $websiteSalesError) {
-        error_log('Unable to merge website paid sales: ' . $websiteSalesError->getMessage());
-    }
-    $decoded = jg_sales_apply_executive_context($decoded, $year);
-    try {
+        $decoded = jg_sales_apply_executive_context($decoded, $year);
         $decoded = jg_whatsapp_merge_sales_summary(analyticsDb(), $decoded, $year);
-    } catch (Throwable $whatsappSalesError) {
-        error_log('Unable to merge WhatsApp sales: ' . $whatsappSalesError->getMessage());
-    }
-    try {
         $decoded = jg_sales_merge_partner_summary($decoded, $year);
-    } catch (Throwable $partnerSalesError) {
-        error_log('Unable to merge Partner sales: ' . $partnerSalesError->getMessage());
+        $decoded = jg_sales_apply_all_channel_packing($decoded, $year);
+        $decoded = jg_sales_summary_enforce_profit_formula($decoded);
+        if ($includeAudit) {
+            jg_sales_attach_calculation_audit($decoded, $year);
+        }
+        jg_sales_remove_customer_paid_fields($decoded);
+        $decoded['meta']['summary_complete'] = true;
+        $decoded['meta']['snapshot_at'] = $snapshotAt;
+        unset($decoded['meta']['refresh_error']);
+        $encoded = json_encode($decoded, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+        jg_sales_cache_write($completeKey, $encoded);
+        return $encoded;
+    } catch (Throwable $error) {
+        error_log('Unable to assemble complete sales summary: ' . $error->getMessage());
+        $previous = jg_sales_cache_read($completeKey, 0);
+        $fallback = is_string($previous) ? json_decode($previous, true) : null;
+        if (is_array($fallback) && !empty($fallback['meta']['summary_complete'])) {
+            // Return the entire verified snapshot, never a mixture of old and missing sources.
+            $fallback['meta']['refresh_error'] = 'A sales source is unavailable. Showing the last complete update.';
+            $fallback['sync_status']['fresh'] = false;
+            header('X-JG-Cache: COMPLETE-STALE');
+            return json_encode($fallback, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+        }
+        http_response_code(503);
+        return json_encode([
+            'ok' => false,
+            'error' => 'complete_sales_summary_unavailable',
+            'message' => 'The complete sales summary is temporarily unavailable. Please try again.',
+            'meta' => ['summary_complete' => false],
+        ], JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
     }
-    $decoded = jg_sales_apply_all_channel_packing($decoded, $year);
-    $decoded = jg_sales_summary_enforce_profit_formula($decoded);
-    if ($includeAudit) {
-        jg_sales_attach_calculation_audit($decoded, $year);
-    }
-    jg_sales_remove_customer_paid_fields($decoded);
-
-    $encoded = json_encode($decoded, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-    return is_string($encoded) ? $encoded : '{}';
 }
 
 /**
@@ -563,8 +578,12 @@ function jg_sales_context_by_month(int $year): array
         ));
     } catch (Throwable $error) {
         error_log('Unable to load executive chart context: ' . $error->getMessage());
+        $cachedRows = jg_executive_context_cache_read();
+        if (!is_array($cachedRows)) {
+            throw new RuntimeException('Executive sales context is temporarily unavailable.', 0, $error);
+        }
         $rows = array_values(array_filter(
-            jg_executive_context_cache_read() ?? [],
+            $cachedRows,
             static fn (array $row): bool => str_starts_with((string) ($row['period_key'] ?? ''), $year . '-')
         ));
     }
@@ -586,39 +605,14 @@ function jg_sales_apply_executive_context(array $summary, int $year): array
  */
 function jg_sales_context_only_summary(int $year): ?array
 {
-    $context = jg_sales_context_by_month($year);
-    $summary = [
-        'ok' => true,
-        'year' => $year,
-        'years' => [2025, 2026],
-        'months' => [],
-        'totals' => [],
-        'platforms' => [],
-        'accounts' => [],
-        'products' => [],
-        'generated_at' => gmdate(DATE_ATOM),
-        'context_only' => true,
-    ];
-    try {
-        $summary = jg_website_merge_sales_summary(analyticsDb(), $summary, $year);
-    } catch (Throwable $websiteSalesError) {
-        error_log('Unable to merge website paid sales into context summary: ' . $websiteSalesError->getMessage());
-    }
-    $summary = jg_executive_context_apply_summary($summary, $context);
-    try {
-        $summary = jg_whatsapp_merge_sales_summary(analyticsDb(), $summary, $year);
-    } catch (Throwable $whatsappSalesError) {
-        error_log('Unable to merge WhatsApp sales into context summary: ' . $whatsappSalesError->getMessage());
-    }
-    try {
-        $summary = jg_sales_merge_partner_summary($summary, $year);
-    } catch (Throwable $partnerSalesError) {
-        error_log('Unable to merge Partner sales into context summary: ' . $partnerSalesError->getMessage());
-    }
-    $summary = jg_sales_summary_enforce_profit_formula($summary);
-    if ($context === [] && (int) ($summary['totals']['orders'] ?? 0) === 0) {
+    // Historical context alone must never be presented as all-channel revenue.
+    $previous = jg_sales_cache_read('sales-summary-complete-v1-' . $year . '-core', 0);
+    $summary = is_string($previous) ? json_decode($previous, true) : null;
+    if (!is_array($summary) || empty($summary['meta']['summary_complete'])) {
         return null;
     }
+    $summary['meta']['refresh_error'] = 'Marketplace sales are unavailable. Showing the last complete update.';
+    $summary['sync_status']['fresh'] = false;
     return $summary;
 }
 
@@ -652,12 +646,32 @@ function jg_sales_cache_read(string $key, int $ttlSeconds): ?string
 function jg_sales_cache_write(string $key, string $payload): void
 {
     $path = jg_sales_cache_path($key);
-    $temporary = @tempnam(dirname($path), '.sales-');
-    if (!is_string($temporary)) {
-        return;
+    $lock = null;
+    if (str_starts_with($key, 'sales-summary-')) {
+        $lock = @fopen($path . '.lock', 'c');
+        if (!is_resource($lock)) return;
+        if (!flock($lock, LOCK_EX)) { fclose($lock); return; }
+        $previous = json_decode((string) @file_get_contents($path), true);
+        $candidate = json_decode($payload, true);
+        $olderMarketplace = (strtotime((string) ($candidate['generated_at'] ?? '')) ?: 0)
+            < (strtotime((string) ($previous['generated_at'] ?? '')) ?: 0);
+        $olderSnapshot = strcmp((string) ($previous['meta']['snapshot_at'] ?? ''), (string) ($candidate['meta']['snapshot_at'] ?? '')) > 0;
+        if ($olderMarketplace || $olderSnapshot) {
+            flock($lock, LOCK_UN);
+            fclose($lock);
+            return;
+        }
     }
-    if (@file_put_contents($temporary, $payload, LOCK_EX) === false || !@rename($temporary, $path)) {
-        @unlink($temporary);
+    try {
+        $temporary = @tempnam(dirname($path), '.sales-');
+        if (!is_string($temporary)) {
+            return;
+        }
+        if (@file_put_contents($temporary, $payload, LOCK_EX) === false || !@rename($temporary, $path)) {
+            @unlink($temporary);
+        }
+    } finally {
+        if (is_resource($lock)) { flock($lock, LOCK_UN); fclose($lock); }
     }
 }
 

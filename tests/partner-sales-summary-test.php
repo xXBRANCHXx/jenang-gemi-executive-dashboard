@@ -48,9 +48,9 @@ partner_summary_expect(3, count($facts['products']), 'Partner product facts must
 partner_summary_expect(9, jg_partner_sales_summary_month(['order_timestamp' => '2026-08-31 18:30:00'], 2026), 'UTC timestamps must use the Jakarta sales month.');
 $salesApi = file_get_contents(dirname(__DIR__) . '/api/sales/index.php');
 partner_summary_expect(
-    2,
+    1,
     substr_count((string) $salesApi, 'jg_sales_merge_partner_summary($'),
-    'Both cached and context-only Sales Recap responses must merge Partner sales.'
+    'Complete Sales Recap responses must merge Partner sales; outages use an already complete snapshot.'
 );
 partner_summary_expect(
     true,
