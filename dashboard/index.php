@@ -58,10 +58,12 @@ $sidebarSection = match (true) {
     in_array($requestedView ?? '', ['website', 'site', 'home', 'campaign', 'campaigns', 'landing', 'landing-pages'], true) => 'website',
     default => 'home',
 };
-$dashboardBuildVersion = 'exec3.98.21';
+$dashboardBuildVersion = 'exec3.98.22';
 $adminCssVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.js');
 $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/store-ops.js');
+$shipmentScheduleJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/shipment-schedule.js');
+$shipmentArrangementCssVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/shipment-arrangement.css');
 $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/shipment-arrangement.js');
 ?>
 <!DOCTYPE html>
@@ -77,6 +79,7 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap">
     <link rel="stylesheet" href="../admin.css?v=<?php echo urlencode($adminCssVersion ?: '1'); ?>">
+    <link rel="stylesheet" href="../shipment-arrangement.css?v=<?php echo urlencode($shipmentArrangementCssVersion ?: '1'); ?>">
 </head>
 <body class="admin-body<?php echo $isAuthenticated ? ' is-dashboard is-loading is-executive-dashboard' : ' is-login'; ?>">
 <div class="admin-build-badge" aria-label="Dashboard build version">
@@ -1024,7 +1027,7 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
                             <div>
                                 <span class="admin-panel-kicker">Orders · Ops</span>
                                 <h2>Shipment arrangement</h2>
-                                <p>Track each booked courier window against the final marketplace ship-by deadline.</p>
+                                <p>See what is waiting, when the courier is due, and which handovers need attention.</p>
                             </div>
                             <div class="admin-arrangement-hero-actions">
                                 <span class="admin-arrangement-live" data-arrangement-live><i></i> Connecting</span>
@@ -1040,41 +1043,33 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
                         <section data-arrangement-page="schedule">
                             <div class="admin-arrangement-workspace is-schedule">
                                 <main class="admin-arrangement-primary">
-                                    <header class="admin-arrangement-schedule-head">
-                                        <div>
-                                            <span class="admin-panel-kicker">Ship-by deadline timeline</span>
-                                            <div class="admin-arrangement-week-title">
-                                                <h3>Last 8 hours · next 24 hours</h3>
-                                                <strong data-arrangement-window-label>Loading time window</strong>
-                                            </div>
-                                            <p class="admin-arrangement-summary" aria-label="Shipment arrangement status">
-                                                <span class="is-exception"><strong data-arrangement-metric="overdue">0</strong> past due</span>
-                                                <span><strong data-arrangement-metric="due">0</strong> due next</span>
-                                                <span class="is-booked"><strong data-arrangement-metric="booked">0</strong> pickup booked</span>
-                                            </p>
-                                        </div>
-                                        <div class="admin-arrangement-window-explainer">
-                                            <strong>Every card is an unpicked order</strong>
-                                            <span>Cards mark ship-by deadlines. Full-height blue bands mark booked courier windows.</span>
+                                    <div class="shipment-metrics" aria-label="Filter shipments by status">
+                                        <button type="button" class="is-red" data-shipment-filter="attention" aria-pressed="false"><strong data-arrangement-metric="attention">—</strong><span>Needs attention</span><small>Missed or needs review</small></button>
+                                        <button type="button" class="is-amber" data-shipment-filter="soon" aria-pressed="false"><strong data-arrangement-metric="soon">—</strong><span>Pickup / ship-by soon</span><small>Open windows &amp; approaching times</small></button>
+                                        <button type="button" data-shipment-filter="pending" aria-pressed="false"><strong data-arrangement-metric="pending">—</strong><span>Awaiting pickup</span><small>All outstanding shipments</small></button>
+                                        <button type="button" class="is-green" data-shipment-filter="complete" aria-pressed="false"><strong data-arrangement-metric="complete">—</strong><span data-shipment-completed-label>Picked up today</span><small>Confirmed by marketplace</small></button>
+                                    </div>
+                                    <p class="shipment-notice" data-shipment-notice role="status" hidden></p>
+                                    <header class="shipment-toolbar">
+                                        <div><h3>Pickup timeline</h3><span data-arrangement-window-label>Loading schedule</span></div>
+                                        <div class="shipment-day-nav" aria-label="Timeline day">
+                                            <button type="button" data-shipment-day="-1" aria-label="Previous day">‹</button>
+                                            <button type="button" data-shipment-today>Today</button>
+                                            <input type="date" data-shipment-date aria-label="Select timeline date">
+                                            <button type="button" data-shipment-day="1" aria-label="Next day">›</button>
                                         </div>
                                     </header>
+                                    <div class="shipment-filters">
+                                        <button type="button" data-shipment-filter="all" class="is-selected" aria-pressed="true">All statuses</button>
+                                        <select data-shipment-account aria-label="Filter by shop"><option value="">All shops</option></select>
+                                        <input type="search" data-shipment-search placeholder="Find order or courier…" aria-label="Find order, package or courier">
+                                        <details class="shipment-legend"><summary>How to read</summary><div><p><i class="is-blue"></i>Bar = booked pickup window</p><p><i class="is-amber"></i>Diamond = final ship-by deadline</p><p><i class="is-red"></i>Red = time passed, pickup unconfirmed</p><p><i class="is-green"></i>Green = marketplace confirmed pickup</p><small>Pickup approaching: within 2 hours. Ship-by soon: within 4 hours. All times are WIB. A missed window means collection is not yet confirmed; marketplace updates may lag.</small></div></details>
+                                    </div>
                                     <section class="admin-arrangement-rescheduler" data-arrangement-rescheduler hidden></section>
-                                    <div class="admin-arrangement-agenda" data-arrangement-map>
-                                        <p class="admin-empty">Loading ship-by deadlines.</p>
+                                    <div class="admin-arrangement-agenda" data-arrangement-map aria-busy="true">
+                                        <p class="admin-empty">Loading pickup windows and outstanding shipments…</p>
                                     </div>
                                 </main>
-
-                                <aside class="admin-arrangement-guide admin-arrangement-status-strip">
-                                    <section>
-                                        <h3>How to read this</h3>
-                                        <dl class="admin-arrangement-status-guide">
-                                            <div><dt class="is-booked">Pickup window</dt><dd>A full-height blue band spans the booked start and end time. Select it to see every scheduled order and its pickup status.</dd></div>
-                                            <div><dt class="is-confirmed">Courier pickup</dt><dd>A dotted green line marks when our API observed Shopee confirm one or more pickups. Select it to inspect the confirmed orders.</dd></div>
-                                            <div><dt class="is-upcoming">Ship by</dt><dd>The final handover deadline. It controls the card’s horizontal position.</dd></div>
-                                            <div><dt class="is-overdue">Past due</dt><dd>The ship-by deadline passed and Shopee has not confirmed pickup.</dd></div>
-                                        </dl>
-                                    </section>
-                                </aside>
                             </div>
                         </section>
 
@@ -2299,6 +2294,7 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
     <script type="module" src="../admin.js?v=<?php echo urlencode($adminJsVersion ?: '1'); ?>"></script>
     <script type="module" src="../partner-billing-notifications.js?v=<?php echo urlencode((string) @filemtime(dirname(__DIR__) . '/partner-billing-notifications.js')); ?>"></script>
     <script src="../store-ops.js?v=<?php echo urlencode($storeOpsJsVersion ?: '1'); ?>" defer></script>
+    <script src="../shipment-schedule.js?v=<?php echo urlencode($shipmentScheduleJsVersion ?: '1'); ?>" defer></script>
     <script src="../shipment-arrangement.js?v=<?php echo urlencode($shipmentArrangementJsVersion ?: '1'); ?>" defer></script>
 <?php endif; ?>
 </body>

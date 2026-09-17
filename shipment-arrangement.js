@@ -2,6 +2,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const root = document.querySelector('[data-shipment-arrangement]');
   if (!root) return;
 
+  const schedule = window.JgShipmentSchedule;
   const endpoint = root.dataset.shipmentArrangementEndpoint || '../api/shipment-arrangement/';
   const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
   const CARRIERS = [
@@ -12,6 +13,16 @@ document.addEventListener('DOMContentLoaded', () => {
   const state = {
     data: null,
     windowNow: new Date(),
+    day: schedule.dayKey(new Date()),
+    followToday: true,
+    account: '',
+    query: '',
+    filter: 'all',
+    otherLimit: 8,
+    lastLoaded: null,
+    loadError: '',
+    incomplete: false,
+    board: null,
     tab: 'schedule',
     advancedPlatform: 'shopee',
     workingPolicy: null,
@@ -23,6 +34,10 @@ document.addEventListener('DOMContentLoaded', () => {
   };
   const refs = {
     live: root.querySelector('[data-arrangement-live]'),
+    notice: root.querySelector('[data-shipment-notice]'),
+    date: root.querySelector('[data-shipment-date]'),
+    account: root.querySelector('[data-shipment-account]'),
+    search: root.querySelector('[data-shipment-search]'),
     refresh: root.querySelector('[data-arrangement-refresh]'),
     map: root.querySelector('[data-arrangement-map]'),
     rescheduler: root.querySelector('[data-arrangement-rescheduler]'),
@@ -65,23 +80,11 @@ document.addEventListener('DOMContentLoaded', () => {
     };
   }
 
-  const HOUR = 3600000;
-  const WINDOW_BEFORE_HOURS = 8;
-  const WINDOW_AFTER_HOURS = 24;
-  const WINDOW_HOURS = WINDOW_BEFORE_HOURS + WINDOW_AFTER_HOURS;
-  const windowStart = () => new Date(state.windowNow.getTime() - (WINDOW_BEFORE_HOURS * HOUR));
-  const windowEnd = () => new Date(state.windowNow.getTime() + (WINDOW_AFTER_HOURS * HOUR));
-
   const escapeHtml = (value) => String(value ?? '')
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
 
-  const parseUtc = (value) => {
-    if (!value) return null;
-    const raw = String(value);
-    const date = new Date(/[zZ]|[+-]\d\d:\d\d$/.test(raw) ? raw : `${raw.replace(' ', 'T')}Z`);
-    return Number.isNaN(date.getTime()) ? null : date;
-  };
+  const parseUtc = schedule.parse;
 
   const formatDate = (date, options) => new Intl.DateTimeFormat('en-GB', {
     timeZone: 'Asia/Jakarta',
@@ -127,280 +130,116 @@ document.addEventListener('DOMContentLoaded', () => {
     };
   };
 
-  const orderDeadline = (order) => [
-    order.ship_by_at,
-    order.collection_due_at,
-    order.pickup_cutoff_at,
-    order.deadline_at
-  ].map(parseUtc).find(Boolean) || null;
-
-  const normalizedStatus = (value) => String(value || '')
-    .trim()
-    .toUpperCase()
-    .replace(/[^A-Z0-9]+/g, '_')
-    .replace(/^_+|_+$/g, '');
-
-  const pickupConfirmed = (order) => {
-    if (order.pickup_confirmed === true || order.pickup_confirmed === 1 || order.pickup_confirmed === '1') return true;
-    if (parseUtc(order.pickup_confirmed_at) || parseUtc(order.picked_up_at)) return true;
-    const platform = String(order.platform || '').toLowerCase();
-    const statuses = [
-      normalizedStatus(order.marketplace_package_status),
-      normalizedStatus(order.package_status),
-      normalizedStatus(order.marketplace_order_status),
-      normalizedStatus(order.marketplace_status),
-      normalizedStatus(order.order_status),
-      normalizedStatus(order.status)
-    ].filter(Boolean);
-    const confirmed = platform === 'shopee'
-      ? ['PICKED_UP', 'SHIPPED', 'TO_CONFIRM_RECEIVE', 'COMPLETED', 'DELIVERED']
-      : ['PICKED_UP', 'IN_TRANSIT', 'SHIPPED', 'TO_CONFIRM_RECEIVE', 'COMPLETED', 'DELIVERED'];
-    return statuses.some((status) => confirmed.includes(status));
+  const orderDeadline = schedule.deadline;
+  const pickupConfirmed = schedule.confirmed;
+  const pickupWindowLabel = (order) => {
+    const { start, end } = schedule.window(order);
+    if (!start) return ['DROP_OFF', 'DROPOFF'].includes(String(order.handover_method).toUpperCase()) ? 'Drop-off · no courier pickup' : 'Pickup time not supplied';
+    return `${formatDate(start, { weekday: 'short', day: '2-digit', month: 'short' })} · ${formatDate(start, { hour: '2-digit', minute: '2-digit' })}${end ? `–${schedule.dayKey(start) !== schedule.dayKey(end) ? `${formatDate(end, { weekday: 'short', day: '2-digit', month: 'short' })} ` : ''}${formatDate(end, { hour: '2-digit', minute: '2-digit' })}` : ' · end unknown'} WIB`;
   };
-
-  const selectedOrders = () => {
-    const orders = Array.isArray(state.data?.orders) ? state.data.orders : [];
-    return orders.filter((order) => {
-      const deadline = orderDeadline(order);
-      return !pickupConfirmed(order) && deadline && deadline >= windowStart() && deadline <= windowEnd();
-    });
+  const pickupOrderState = (order) => {
+    const health = schedule.classify(order, state.windowNow);
+    return { ...health, key: health.key === 'complete' ? 'picked-up' : health.tone === 'red' ? 'awaiting-confirmation' : health.tone === 'amber' ? 'window-open' : 'scheduled' };
   };
-
-  const pickupConfirmationGroups = () => {
-    const orders = Array.isArray(state.data?.orders) ? state.data.orders : [];
-    const start = windowStart();
-    const groups = new Map();
-    orders.forEach((order) => {
-      if (!pickupConfirmed(order)) return;
-      const confirmedAt = parseUtc(order.pickup_confirmed_at || order.picked_up_at);
-      if (!confirmedAt || confirmedAt < start || confirmedAt > state.windowNow) return;
-      const bucket = Math.floor(confirmedAt.getTime() / (5 * 60 * 1000));
-      if (!groups.has(bucket)) groups.set(bucket, { confirmedAt, orders: [] });
-      const group = groups.get(bucket);
-      if (confirmedAt < group.confirmedAt) group.confirmedAt = confirmedAt;
-      group.orders.push(order);
-    });
-    return Array.from(groups.values()).sort((left, right) => left.confirmedAt - right.confirmedAt);
-  };
-
-  const pickupWindowGroups = () => {
-    const orders = Array.isArray(state.data?.orders) ? state.data.orders : [];
-    const start = windowStart();
-    const end = windowEnd();
-    const grouped = new Map();
-    orders.forEach((order) => {
-      const pickupStart = parseUtc(order.pickup_start_at);
-      const pickupEnd = parseUtc(order.pickup_end_at) || (pickupStart ? new Date(pickupStart.getTime() + HOUR) : null);
-      if (!pickupStart || !pickupEnd || pickupEnd <= start || pickupStart >= end) return;
-      const platform = String(order.platform || '').toLowerCase();
-      const key = `${platform}|${pickupStart.toISOString()}|${pickupEnd.toISOString()}`;
-      if (!grouped.has(key)) grouped.set(key, { platform, start: pickupStart, end: pickupEnd, orders: [] });
-      grouped.get(key).orders.push(order);
-    });
-    const groups = Array.from(grouped.values()).sort((left, right) =>
-      left.start - right.start || left.end - right.end
-    );
-    const laneEnds = [];
-    groups.forEach((group) => {
-      let lane = laneEnds.findIndex((laneEnd) => group.start >= laneEnd);
-      if (lane < 0) lane = laneEnds.length;
-      laneEnds[lane] = group.end;
-      group.lane = lane;
-    });
-    return { groups, laneCount: laneEnds.length };
-  };
-
-  const pickupMarkerLayout = (groups, start) => {
-    const laneEnds = [];
-    const laidOut = groups.map((group) => {
-      const elapsed = group.confirmedAt.getTime() - start.getTime();
-      const position = Math.max(0, Math.min(100, (elapsed / (WINDOW_HOURS * HOUR)) * 100));
-      const flip = position > 84;
-      const labelStart = Math.max(0, position - (flip ? 10 : 0));
-      const labelEnd = Math.min(100, position + (flip ? 0 : 10));
-      let labelLane = laneEnds.findIndex((laneEnd) => labelStart >= laneEnd + 1);
-      if (labelLane < 0) labelLane = laneEnds.length;
-      laneEnds[labelLane] = labelEnd;
-      return { ...group, position, labelLane, flip };
-    });
-    return { groups: laidOut, laneCount: Math.max(1, laneEnds.length) };
-  };
-
-  const pickupOrderState = (order, group = null) => {
-    if (pickupConfirmed(order)) {
-      const confirmedAt = parseUtc(order.pickup_confirmed_at || order.picked_up_at);
-      return {
-        key: 'picked-up',
-        label: 'Picked up',
-        detail: confirmedAt ? `Confirmed ${formatEventTime(confirmedAt)}` : 'Confirmed by marketplace'
-      };
-    }
-    const start = parseUtc(order.pickup_start_at) || group?.start || null;
-    const end = parseUtc(order.pickup_end_at) || group?.end || null;
-    if (start && state.windowNow < start) {
-      return { key: 'scheduled', label: 'Scheduled', detail: `Starts ${formatEventTime(start)}` };
-    }
-    if (start && end && state.windowNow >= start && state.windowNow <= end) {
-      return { key: 'window-open', label: 'Pickup window open', detail: `Ends ${formatEventTime(end)}` };
-    }
-    if (end && state.windowNow > end) {
-      return { key: 'awaiting-confirmation', label: 'Awaiting confirmation', detail: `Window ended ${formatEventTime(end)}` };
-    }
-    return { key: 'scheduled', label: 'Scheduled', detail: pickupWindowLabel(order) };
-  };
-
-  const pickupGroupCounts = (group) => {
-    const orders = Array.isArray(group?.orders) ? group.orders : [];
+  const pickupGroupCounts = group => {
+    const orders = group?.orders || [];
     const pickedUp = orders.filter(pickupConfirmed).length;
     return { total: orders.length, pickedUp, awaiting: orders.length - pickedUp };
   };
-
-  const orderTimelineStatus = (deadline) => {
-    if (deadline < state.windowNow) return ['Past ship-by deadline', 'is-overdue'];
-    if (deadline.getTime() - state.windowNow.getTime() <= 4 * HOUR) return ['Ship by soon', 'is-due-soon'];
-    return ['Before ship-by', 'is-upcoming'];
+  const board = () => schedule.build(state.data?.orders || [], {
+    now: state.windowNow, day: state.day, account: state.account, query: state.query, filter: state.filter
+  });
+  const timeLabel = value => formatDate(value, { hour: '2-digit', minute: '2-digit' });
+  const dayLabel = value => formatDate(value, { weekday: 'short', day: '2-digit', month: 'short' });
+  const shortAccount = order => `${String(order.platform || 'Marketplace').replace(/^shopee$/, 'Shopee').replace(/^tiktok$/, 'TikTok')} · ${String(order.account_key || 'Unknown shop').replace(/[-_](shopee|tiktok)$/i, '').replace(/[-_]/g, ' ')}`;
+  const countLabel = n => `${n} shipment${n === 1 ? '' : 's'}`;
+  const deadlineLabel = order => {
+    const due = orderDeadline(order);
+    return due ? `${dayLabel(due)} · ${timeLabel(due)} WIB` : 'Ship-by time not supplied';
   };
-
-  const pickupWindowLabel = (order) => {
-    const start = parseUtc(order.pickup_start_at);
-    const end = parseUtc(order.pickup_end_at);
-    if (!start) return 'No pickup window returned';
-    const day = formatDate(start, { weekday: 'short' });
-    const startTime = formatDate(start, { hour: '2-digit', minute: '2-digit' });
-    const endTime = end ? `–${formatDate(end, { hour: '2-digit', minute: '2-digit' })}` : '';
-    return `Pickup booked ${day} ${startTime}${endTime}`;
-  };
-
+  const canReschedule = order => !pickupConfirmed(order) && schedule.classify(order, state.windowNow).label !== 'Cancellation pending' && String(order.platform).toLowerCase() === 'shopee'
+    && (String(order.handover_method).toUpperCase() === 'PICKUP' || Boolean(schedule.window(order).start));
   const renderSchedule = () => {
     if (!refs.map || !state.data) return;
-    const start = windowStart();
-    const end = windowEnd();
-    const orders = selectedOrders().sort((left, right) =>
-      orderDeadline(left).getTime() - orderDeadline(right).getTime()
-    );
-    const pickupGroups = pickupConfirmationGroups();
-    const pickupMarkersLayout = pickupMarkerLayout(pickupGroups, start);
-    const pickupWindows = pickupWindowGroups();
-    if (refs.windowLabel) {
-      refs.windowLabel.textContent = `${formatDate(start, { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })} – ${formatDate(end, { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}`;
-    }
-
-    if (!orders.length && !pickupGroups.length && !pickupWindows.groups.length) {
-      refs.map.innerHTML = '<div class="admin-arrangement-agenda-empty"><strong>No unpicked orders in this window</strong><p>Picked-up orders disappear. No remaining orders have a ship-by deadline between 8 hours ago and 24 hours from now.</p></div>';
-      return;
-    }
-
-    const ticks = [0, 4, 8, 12, 16, 20, 24, 32].map((offsetHours) => {
-      const moment = new Date(start.getTime() + (offsetHours * HOUR));
-      return `
-        <span class="${offsetHours === WINDOW_HOURS ? 'is-window-end' : ''}" style="--tick-column:${offsetHours + 1}">
-          <strong>${offsetHours === WINDOW_BEFORE_HOURS ? `Now · ${formatDate(state.windowNow, { hour: '2-digit', minute: '2-digit' })}` : formatDate(moment, { hour: '2-digit', minute: '2-digit' })}</strong>
-          <small>${formatDate(moment, { weekday: 'short', day: '2-digit', month: 'short' })}</small>
-        </span>`;
+    const model = board();
+    state.board = model;
+    const { start, end } = model.range;
+    const position = date => Math.max(0, Math.min(100, (date - start) / (end - start) * 100));
+    const nowVisible = state.windowNow >= start && state.windowNow < end;
+    const scroll = refs.map.querySelector('.shipment-timeline-scroll')?.scrollLeft || 0;
+    const focused = document.activeElement?.dataset?.shipmentFocus;
+    const ticks = [0, 6, 12, 18, 24].map(hour => `<span style="left:${hour / 24 * 100}%">${hour === 24 ? '24:00' : `${String(hour).padStart(2, '0')}:00`}</span>`).join('');
+    const rows = model.groups.map((group, index) => {
+      const health = group.health;
+      const left = position(group.start), right = position(group.end || group.start);
+      const deadlineHere = group.deadline && group.deadline >= start && group.deadline < end;
+      const windowTime = date => `${schedule.dayKey(date) !== state.day ? `${formatDate(date, { weekday: 'short' })} ` : ''}${timeLabel(date)}`;
+      const complete = group.pending === 0;
+      const progress = group.pickedUp / group.orders.length * 100;
+      return `<button type="button" class="shipment-lane is-${health.tone}" data-shipment-group="${index}" data-shipment-focus="${escapeHtml(`group-${encodeURIComponent(group.key)}`)}"
+        aria-label="${escapeHtml(group.carrier)}, ${escapeHtml(shortAccount(group.orders[0]))}, ${escapeHtml(pickupWindowLabel(group.orders[0]))}. ${escapeHtml(health.label)}. ${group.pickedUp} of ${group.orders.length} picked up. View orders.">
+        <span class="shipment-lane-heading"><strong>${escapeHtml(group.carrier)}</strong><small>${escapeHtml(shortAccount(group.orders[0]))}</small>
+          <span class="shipment-lane-progress"><i><b style="width:${progress}%"></b></i><span>${group.pickedUp}/${group.orders.length} picked up</span></span>
+        </span>
+        <span class="shipment-lane-track" aria-hidden="true">
+          ${nowVisible ? `<i class="shipment-now" style="left:${position(state.windowNow)}%"></i>` : ''}
+          <span class="shipment-window ${group.end ? '' : 'is-point'}" style="left:${left}%;width:${Math.max(.4, right - left)}%"></span>
+          <span class="shipment-window-time ${left > 66 ? 'is-end' : ''}" style="left:${Math.min(99, left)}%">${windowTime(group.start)}${group.end ? `–${windowTime(group.end)}` : ' · end unknown'}</span>
+          ${deadlineHere ? `<i class="shipment-deadline" style="left:${position(group.deadline)}%" title="Ship by ${timeLabel(group.deadline)} WIB"></i>` : ''}
+        </span>
+        <span class="shipment-lane-result"><strong>${escapeHtml(health.label)}</strong>
+          <small>${complete ? 'All shipments collected' : `${group.pending} awaiting · ${group.prepared}/${group.pending} prepared`}</small>
+          <span>${group.deadline ? `${group.orders.length > 1 ? 'First ship by' : 'Ship by'} ${dayLabel(group.deadline)} · ${timeLabel(group.deadline)}` : complete ? 'View pickup details →' : 'Ship-by time unavailable'}</span>
+        </span>
+      </button>`;
     }).join('');
-    const gridLines = Array.from({ length: WINDOW_HOURS }, (_, index) =>
-      `<i class="${index < WINDOW_BEFORE_HOURS ? 'is-history' : ''}"></i>`
-    ).join('');
-    const events = orders.map((order) => {
-      const deadline = orderDeadline(order);
-      const offset = Math.max(0, Math.min(WINDOW_HOURS - 1, (deadline.getTime() - start.getTime()) / HOUR));
-      const column = Math.min(WINDOW_HOURS - 2, Math.floor(offset) + 1);
-      const [status, statusClass] = orderTimelineStatus(deadline);
-      const platform = String(order.platform || '').toLowerCase();
-      const platformLabel = platform === 'shopee' ? 'Shopee' : platform === 'tiktok' ? 'TikTok Shop' : platform || 'Marketplace';
-      const canReschedule = platform === 'shopee'
-        && (String(order.handover_method || '').toUpperCase() === 'PICKUP' || Boolean(parseUtc(order.pickup_start_at)));
-      return `
-        <article class="admin-arrangement-deadline-event is-${escapeHtml(platform)} ${escapeHtml(statusClass)}" style="--event-column:${column}">
-          <header>
-            <span>${escapeHtml(platformLabel)}</span>
-            <strong>Ship by ${escapeHtml(formatDate(deadline, { hour: '2-digit', minute: '2-digit' }))}</strong>
-          </header>
-          <b>${escapeHtml(order.order_id)}</b>
-          <small>${escapeHtml(order.account_key || '')}</small>
-          <footer>
-            <span>${escapeHtml(status)}</span>
-            <em>${escapeHtml(pickupWindowLabel(order))}</em>
-            ${canReschedule ? `<button type="button" data-change-pickup
-              data-platform="${escapeHtml(platform)}"
-              data-account-key="${escapeHtml(order.account_key || '')}"
-              data-order-id="${escapeHtml(order.order_id || '')}"
-              data-package-id="${escapeHtml(order.package_id || '')}">Change pickup</button>` : ''}
-          </footer>
-        </article>`;
+    const remaining = model.other;
+    const shown = remaining.slice(0, state.otherLimit);
+    const list = shown.map((order, index) => {
+      const health = schedule.classify(order, state.windowNow);
+      const confirmed = pickupConfirmed(order);
+      return `<button type="button" class="shipment-order is-${health.tone}" data-shipment-order="${index}" data-shipment-focus="${escapeHtml(`order-${encodeURIComponent(orderIdentity(order))}`)}">
+        <span><strong>${escapeHtml(order.order_id)}</strong><small>${escapeHtml(shortAccount(order))}${order.package_id ? ` · ${escapeHtml(order.package_id)}` : ''}</small></span>
+        <span><strong>${escapeHtml(health.label)}</strong><small>${escapeHtml(health.detail)}</small></span>
+        <span><strong>${escapeHtml(confirmed ? 'Pickup confirmed' : schedule.window(order).start ? pickupWindowLabel(order) : order.shipping_provider_name || 'Courier not supplied')}</strong>
+          <small>${escapeHtml(confirmed ? formatEventTime(order.pickup_confirmed_at || order.picked_up_at) : `Ship by ${deadlineLabel(order)}`)}</small></span>
+        <span class="shipment-order-arrow" aria-hidden="true">↗</span>
+      </button>`;
     }).join('');
-    const pickupMarkers = pickupMarkersLayout.groups.map((group, groupIndex) => {
-      const orderIds = group.orders.map((order) => String(order.order_id || '')).filter(Boolean);
-      const count = orderIds.length;
-      const time = formatDate(group.confirmedAt, { hour: '2-digit', minute: '2-digit' });
-      const quickIds = orderIds.slice(0, 3);
-      return `
-        <button type="button" class="admin-arrangement-pickup-marker ${group.flip ? 'is-flipped' : ''}"
-          style="--pickup-position:${group.position}%;--pickup-label-lane:${group.labelLane}"
-          data-pickup-event-index="${groupIndex}"
-          title="Shopee pickup confirmed at ${escapeHtml(time)}: ${escapeHtml(orderIds.join(', '))}"
-          aria-label="Shopee pickup confirmed at ${escapeHtml(time)} for ${count} order${count === 1 ? '' : 's'}">
-          <span class="admin-arrangement-pickup-marker-label">
-            <span>${escapeHtml(time)}</span>
-            <strong>${count} picked up</strong>
-          </span>
-          <div class="admin-arrangement-pickup-preview" aria-hidden="true">
-            <small>Shopee confirmed · ${escapeHtml(time)}</small>
-            <b>${count} picked-up order${count === 1 ? '' : 's'}</b>
-            <ul>${quickIds.map((orderId) => `<li>${escapeHtml(orderId)}</li>`).join('')}</ul>
-            ${count > 3 ? `<em>+${count - 3} more</em>` : ''}
-            <i>Click to inspect this pickup</i>
-          </div>
-        </button>`;
-    }).join('');
-    const pickupWindowBlocks = pickupWindows.groups.map((group, groupIndex) => {
-      const visibleStart = new Date(Math.max(group.start.getTime(), start.getTime()));
-      const visibleEnd = new Date(Math.min(group.end.getTime(), end.getTime()));
-      const left = Math.max(0, ((visibleStart.getTime() - start.getTime()) / (WINDOW_HOURS * HOUR)) * 100);
-      const width = Math.max(.5, ((visibleEnd.getTime() - visibleStart.getTime()) / (WINDOW_HOURS * HOUR)) * 100);
-      const passed = group.end < state.windowNow;
-      const active = group.start <= state.windowNow && group.end >= state.windowNow;
-      const counts = pickupGroupCounts(group);
-      const orderIds = group.orders.map((order) => String(order.order_id || '')).filter(Boolean);
-      const startLabel = formatDate(group.start, { weekday: 'short', hour: '2-digit', minute: '2-digit' });
-      const endLabel = formatDate(group.end, { hour: '2-digit', minute: '2-digit' });
-      const stateLabel = counts.awaiting === 0
-        ? `All ${counts.total} picked up`
-        : counts.pickedUp > 0
-          ? `${counts.pickedUp} of ${counts.total} picked up`
-          : passed
-            ? `Window passed · ${counts.awaiting} awaiting`
-            : active
-              ? `Window open · ${counts.awaiting} awaiting`
-              : `${counts.total} scheduled pickup${counts.total === 1 ? '' : 's'}`;
-      return `
-        <button type="button" class="admin-arrangement-pickup-window ${passed ? 'is-passed' : active ? 'is-active' : ''} ${counts.awaiting === 0 ? 'is-complete' : counts.pickedUp > 0 ? 'is-mixed' : ''}"
-          style="--pickup-window-left:${left}%;--pickup-window-width:${width}%;--pickup-window-lane:${group.lane}"
-          data-pickup-window-index="${groupIndex}"
-          title="${escapeHtml(startLabel)}–${escapeHtml(endLabel)}: ${escapeHtml(orderIds.join(', '))}"
-          aria-label="${escapeHtml(stateLabel)}, ${escapeHtml(startLabel)} to ${escapeHtml(endLabel)}, ${counts.total} order${counts.total === 1 ? '' : 's'}. Open scheduled orders.">
-          <span class="admin-arrangement-pickup-window-label">
-            <strong>${escapeHtml(stateLabel)}</strong>
-            <small>${escapeHtml(startLabel)}–${escapeHtml(endLabel)}</small>
-            <em>View orders</em>
-          </span>
-        </button>`;
-    }).join('');
-
+    const hasScope = state.account || state.query || state.filter !== 'all';
     refs.map.innerHTML = `
-      <div class="admin-arrangement-deadline-scroll">
-        <div class="admin-arrangement-deadline-chart">
-          <div class="admin-arrangement-deadline-axis" aria-hidden="true">${ticks}</div>
-          <div class="admin-arrangement-deadline-plot" style="--pickup-lanes:${pickupWindows.laneCount};--pickup-label-lanes:${pickupMarkersLayout.laneCount}">
-            <div class="admin-arrangement-deadline-grid" aria-hidden="true">${gridLines}</div>
-            <div class="admin-arrangement-now-line" aria-label="Current time: ${escapeHtml(formatDate(state.windowNow, { hour: '2-digit', minute: '2-digit' }))}"></div>
-            <div class="admin-arrangement-pickup-windows">${pickupWindowBlocks}</div>
-            <div class="admin-arrangement-pickup-markers">${pickupMarkers}</div>
-            <div class="admin-arrangement-deadline-events">${events}</div>
-          </div>
+      ${model.groups.length ? `<div class="shipment-timeline-scroll" tabindex="0" role="region" aria-label="Pickup timeline; scroll horizontally on small screens">
+        <div class="shipment-timeline">
+          <div class="shipment-axis"><span>Courier / shop</span><div>${ticks}${nowVisible ? `<b class="shipment-now-label" style="left:${position(state.windowNow)}%">Now ${timeLabel(state.windowNow)}</b>` : ''}</div><span>Handover status</span></div>
+          ${rows}
         </div>
-      </div>
-      <p class="admin-arrangement-agenda-end">${orders.length} unpicked order${orders.length === 1 ? '' : 's'} shown at the final ship-by deadline. Select a full-height pickup band or dotted confirmation line to inspect its orders.</p>`;
+      </div>` : `<div class="shipment-empty ${remaining.length ? 'is-compact' : ''}">
+        <span class="shipment-empty-symbol" aria-hidden="true">${model.counts.pending ? '◷' : '✓'}</span>
+        <strong>${hasScope ? 'No pickup windows match this view' : model.counts.pending ? 'No pickup windows on this day' : model.counts.complete ? 'Pickups on this day are complete' : 'No shipments to show for this day'}</strong>
+        <p>${remaining.length ? model.counts.pending ? 'Shipments outside this day or without a booked window are listed below.' : 'Confirmed collections are listed below.' : hasScope ? 'Try another day, shop or filter.' : 'No outstanding shipments were returned. Choose another day to inspect recent pickup history.'}</p>
+      </div>`}
+      ${remaining.length ? `<section class="shipment-other">
+        <header><div><h3>${!model.counts.pending ? 'Pickup confirmations' : model.groups.length ? 'Outside this timeline' : 'Shipment list'} <span>${remaining.length}</span></h3><p>${model.counts.pending ? 'Earlier or later pickups, drop-offs and shipments without a window. Most urgent first.' : 'Marketplace confirmations for the selected day.'}</p></div></header>
+        ${list}
+        ${remaining.length > shown.length ? `<button type="button" class="admin-arrangement-secondary-button shipment-show-more" data-shipment-more>Show ${Math.min(20, remaining.length - shown.length)} more · ${remaining.length - shown.length} remaining</button>` : ''}
+      </section>` : ''}
+      <footer class="shipment-board-foot"><span>${countLabel(model.groups.reduce((n, g) => n + g.orders.length, 0) + remaining.length)} in this view${model.groups.length && state.filter !== 'all' ? ' · shared pickup windows include their full group' : ''}</span><span>Prepared = confirmed in Store Ops · Pickup history: last 14 days</span></footer>`;
+    const scroller = refs.map.querySelector('.shipment-timeline-scroll');
+    if (scroller) scroller.scrollLeft = scroll;
+    if (focused) refs.map.querySelector(`[data-shipment-focus="${focused}"]`)?.focus({ preventScroll: true });
+    if (refs.windowLabel) refs.windowLabel.textContent = `${dayLabel(start)} · WIB (UTC+7)`;
+    if (refs.date) refs.date.value = state.day;
+    root.querySelectorAll('[data-shipment-filter]').forEach(button => {
+      const key = button.dataset.shipmentFilter;
+      button.setAttribute('aria-pressed', String(state.filter === key));
+      button.classList.toggle('is-selected', state.filter === key);
+    });
+    Object.entries(model.counts).forEach(([key, count]) => {
+      const metric = root.querySelector(`[data-arrangement-metric="${key}"]`);
+      if (metric) metric.textContent = String(count);
+    });
+    const completedLabel = root.querySelector('[data-shipment-completed-label]');
+    if (completedLabel) completedLabel.textContent = state.day === schedule.dayKey(state.windowNow) ? 'Picked up today' : `Picked up ${dayLabel(start)}`;
   };
 
   const renderRescheduler = () => {
@@ -478,7 +317,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const renderOrderBreakdown = (detail, scheduledOrder = {}) => {
     const order = detail?.order || {};
     const financials = detail?.financials || {};
-    const pickupState = pickupOrderState({ ...scheduledOrder, ...order }, state.pickupEvent?.group);
+    const pickupState = pickupOrderState({ ...order, ...scheduledOrder }, state.pickupEvent?.group);
+    const marketplace = String(order.platform || scheduledOrder.platform).toLowerCase() === 'tiktok' ? 'TikTok' : 'Shopee';
     const currency = order.currency || 'IDR';
     const gross = Number(financials.gross_revenue || 0);
     const fees = Number(financials.marketplace_fees || 0);
@@ -487,10 +327,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const sources = financials.sources || {};
     const netSource = String(sources.net_revenue?.source || 'missing');
     const financeQuality = !financials.available
-      ? ['Financial data unavailable', 'Shopee has not supplied stored financial facts for this order yet.', 'is-unavailable']
+      ? ['Financial data unavailable', `${marketplace} has not supplied stored financial facts for this order yet.`, 'is-unavailable']
       : netSource === 'gross_revenue_fallback' || netSource === 'missing'
-        ? ['Financials are provisional', 'Net revenue is not yet settlement-backed; values may change when Shopee releases the order income.', 'is-provisional']
-        : ['Shopee financials stored', 'Gross, deductions, and seller net come from the stored marketplace order record.', 'is-ready'];
+        ? ['Financials are provisional', `Net revenue is provisional; values may change when ${marketplace} releases the order income.`, 'is-provisional']
+        : [`${marketplace} financials stored`, 'Gross, deductions, and seller net come from the stored marketplace order record.', 'is-ready'];
     const items = Array.isArray(detail?.items) ? detail.items : [];
     const timeline = Array.isArray(detail?.timeline) ? detail.timeline : [];
     return `
@@ -512,14 +352,14 @@ document.addEventListener('DOMContentLoaded', () => {
           </div>
           <dl>
             <div><dt>Booked window</dt><dd>${escapeHtml(order.pickup_slot_label || pickupWindowLabel(scheduledOrder))}</dd></div>
-            <div><dt>Ship-by deadline</dt><dd>${escapeHtml(order.ship_by_label || scheduledOrder.ship_by_label || 'Not supplied')}</dd></div>
+            <div><dt>Ship-by deadline</dt><dd>${escapeHtml(deadlineLabel(scheduledOrder))}</dd></div>
             <div><dt>Workflow</dt><dd>${escapeHtml(readableStatus(order.workflow_status, 'Not supplied'))}</dd></div>
           </dl>
         </section>
 
         <section class="admin-arrangement-finance-grid">
           <article><span>Customer paid</span><strong>${financials.available ? formatMoney(gross, currency) : '—'}</strong><small>Gross order value</small></article>
-          <article><span>Shopee deductions</span><strong>${financials.available ? formatMoney(fees, currency) : '—'}</strong><small>${escapeHtml(feeRate)} · gross minus seller net</small></article>
+          <article><span>${marketplace} deductions</span><strong>${financials.available ? formatMoney(fees, currency) : '—'}</strong><small>${escapeHtml(feeRate)} · gross minus seller net</small></article>
           <article class="is-net"><span>Seller net revenue</span><strong>${financials.available ? formatMoney(net, currency) : '—'}</strong><small>${financials.funds_released ? `Released ${formatMoney(financials.funds_released_amount || net, currency)}` : 'Funds not released yet'}</small></article>
         </section>
 
@@ -554,7 +394,7 @@ document.addEventListener('DOMContentLoaded', () => {
                   <b>×${Number(item.quantity || 0)}</b>
                   <dl>
                     <div><dt>Gross</dt><dd>${formatMoney(item.gross_revenue || 0, currency)}</dd></div>
-                    <div><dt>Shopee deductions</dt><dd>${formatMoney(item.marketplace_fees || 0, currency)}</dd></div>
+                    <div><dt>${marketplace} deductions</dt><dd>${formatMoney(item.marketplace_fees || 0, currency)}</dd></div>
                     <div><dt>Seller net</dt><dd>${formatMoney(item.net_revenue || 0, currency)}</dd></div>
                   </dl>
                   ${item.is_free_gift ? '<small>Free gift · excluded from seller revenue</small>' : ''}
@@ -581,40 +421,30 @@ document.addEventListener('DOMContentLoaded', () => {
     const orders = Array.isArray(group?.orders) ? group.orders : [];
     const counts = pickupGroupCounts(group);
     const isWindow = eventState.kind === 'window';
-    const confirmationTime = group?.confirmedAt
-      ? formatDate(group.confirmedAt, { weekday: 'long', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
-      : 'Time unavailable';
-    const windowStartLabel = group?.start
-      ? formatDate(group.start, { weekday: 'long', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
-      : 'Time unavailable';
-    const windowEndLabel = group?.end
-      ? formatDate(group.end, { hour: '2-digit', minute: '2-digit' })
-      : 'Time unavailable';
     refs.eventOverlay.hidden = false;
     refs.eventOverlay.setAttribute('aria-hidden', 'false');
-    if (refs.eventKicker) refs.eventKicker.textContent = isWindow ? 'Booked courier window' : 'Courier pickup confirmation';
+    if (refs.eventKicker) refs.eventKicker.textContent = isWindow ? `${group.carrier || 'Courier'} · ${group.account || ''}` : 'Shipment details';
     if (refs.eventTitle) {
       refs.eventTitle.textContent = isWindow
-        ? `${formatDate(group.start, { weekday: 'short' })} ${formatDate(group.start, { hour: '2-digit', minute: '2-digit' })}–${windowEndLabel}`
-        : `${orders.length} order${orders.length === 1 ? '' : 's'} picked up`;
+        ? pickupWindowLabel(orders[0])
+        : String(orders[0]?.order_id || 'Shipment');
     }
     if (refs.eventSubtitle) {
       refs.eventSubtitle.textContent = isWindow
-        ? `${windowStartLabel} to ${windowEndLabel} · ${counts.total} scheduled order${counts.total === 1 ? '' : 's'}`
-        : `${confirmationTime} · first observed by the Shopee API worker`;
+        ? `${counts.total} scheduled shipment${counts.total === 1 ? '' : 's'} · ${counts.awaiting} awaiting collection`
+        : `${shortAccount(orders[0] || {})} · ${pickupWindowLabel(orders[0] || {})}`;
     }
     if (refs.eventOrders) {
       refs.eventOrders.innerHTML = `
         <div class="admin-arrangement-event-summary">
-          <span>${isWindow ? 'Window progress' : 'Confirmed pickup event'}</span>
-          <strong>${isWindow ? `${counts.pickedUp}/${counts.total}` : counts.total}</strong>
-          <small>${isWindow
-            ? `${counts.pickedUp} picked up · ${counts.awaiting} still awaiting marketplace confirmation`
-            : `Every order below was confirmed picked up at ${confirmationTime}`}</small>
+          <span>${isWindow ? 'Window progress' : 'Pickup progress'}</span>
+          <strong>${counts.pickedUp}/${counts.total}</strong>
+          <small>${counts.pickedUp} picked up · ${counts.awaiting} awaiting confirmation</small>
           <div class="admin-arrangement-event-progress" aria-label="${counts.pickedUp} of ${counts.total} picked up">
             <i style="--pickup-progress:${counts.total ? (counts.pickedUp / counts.total) * 100 : 0}%"></i>
           </div>
         </div>
+        ${orders.length === 1 && canReschedule(orders[0]) ? '<button type="button" class="admin-arrangement-secondary-button shipment-inspector-change" data-inspector-change-pickup>Change pickup</button>' : ''}
         <div class="admin-arrangement-event-list-head">
           <strong>Orders</strong>
           <span>${counts.total} total</span>
@@ -664,30 +494,37 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
       refs.orderDetail.innerHTML = orderDetailLoading(selectedOrder || orders[0]);
     }
+    if (selectedOrder) {
+      refs.orderDetail.insertAdjacentHTML('afterbegin', `<div class="shipment-inspector-facts">
+        <div><small>Preparation</small><strong>${escapeHtml(schedule.preparation(selectedOrder))}</strong></div>
+        <div><small>Ship by</small><strong>${escapeHtml(deadlineLabel(selectedOrder))}</strong></div>
+        ${orders.length > 1 && canReschedule(selectedOrder) ? '<button type="button" class="admin-arrangement-secondary-button" data-inspector-change-pickup>Change pickup</button>' : ''}
+      </div>`);
+    }
   };
 
   const closePickupEvent = () => {
     const returnFocus = state.pickupEvent?.returnFocus;
+    const returnKey = returnFocus?.dataset?.shipmentFocus;
     state.pickupEvent = null;
     if (refs.eventOverlay) {
       refs.eventOverlay.hidden = true;
       refs.eventOverlay.setAttribute('aria-hidden', 'true');
     }
     document.documentElement.classList.remove('has-arrangement-dialog');
-    if (returnFocus instanceof HTMLElement && document.contains(returnFocus)) {
-      queueMicrotask(() => returnFocus.focus());
-    }
+    renderSchedule();
+    const target = returnKey ? Array.from(refs.map?.querySelectorAll('[data-shipment-focus]') || []).find(element => element.dataset.shipmentFocus === returnKey) : returnFocus;
+    if (target instanceof HTMLElement && document.contains(target)) queueMicrotask(() => target.focus({ preventScroll: true }));
   };
 
   const openPickupInspector = (kind, groupIndex, returnFocus = null) => {
-    const group = kind === 'window'
-      ? pickupWindowGroups().groups[Number(groupIndex)]
-      : pickupConfirmationGroups()[Number(groupIndex)];
+    const selected = kind === 'order' ? state.board?.other[Number(groupIndex)] : null;
+    const group = kind === 'window' ? state.board?.groups[Number(groupIndex)] : selected ? { orders: [selected] } : null;
     if (!group) return;
     const id = ++state.pickupEventSequence;
     state.pickupEvent = {
       id,
-      kind: kind === 'window' ? 'window' : 'confirmation',
+      kind: kind === 'window' ? 'window' : 'order',
       group,
       selectedIndex: group.orders.length ? 0 : null,
       selectedOrderKey: group.orders.length ? orderIdentity(group.orders[0]) : '',
@@ -747,7 +584,8 @@ document.addEventListener('DOMContentLoaded', () => {
       renderRescheduler();
       return;
     }
-    state.reschedule = { order, loading: true };
+    const pending = { order, loading: true };
+    state.reschedule = pending;
     renderRescheduler();
     const query = new URLSearchParams({
       action: 'pickup-options',
@@ -758,29 +596,30 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     try {
       const payload = await requestJson(`${endpoint}?${query.toString()}`);
+      if (state.reschedule !== pending) return;
       state.reschedule = { order, payload };
     } catch (error) {
+      if (state.reschedule !== pending) return;
       state.reschedule = { order, error: error.message };
     }
     renderRescheduler();
   };
 
   const renderStatus = () => {
-    const orders = Array.isArray(state.data?.orders) ? state.data.orders : [];
-    const visible = selectedOrders();
-    const overdue = visible.filter((order) => orderDeadline(order) < state.windowNow);
-    const upcoming = visible.filter((order) => {
-      const deadline = orderDeadline(order);
-      return deadline >= state.windowNow;
-    });
-    const booked = pickupWindowGroups().groups.reduce((count, group) => count + group.orders.length, 0);
-    const enabled = Boolean(state.data?.hard_set?.enabled);
-    root.querySelector('[data-arrangement-metric="overdue"]').textContent = String(overdue.length);
-    root.querySelector('[data-arrangement-metric="due"]').textContent = String(upcoming.length);
-    root.querySelector('[data-arrangement-metric="booked"]').textContent = String(booked);
+    const age = state.lastLoaded ? Date.now() - state.lastLoaded : null;
+    const stale = Boolean(state.loadError) || (age !== null && age > 3 * 60000);
     if (refs.live) {
-      refs.live.classList.toggle('is-paused', !enabled);
-      refs.live.innerHTML = `<i></i>${!enabled ? ' Not active' : ' Shopee API · 2 min'}`;
+      refs.live.classList.toggle('is-paused', stale);
+      refs.live.innerHTML = `<i></i>${state.loading ? 'Checking shipments…' : stale ? 'Update delayed' : age === null ? 'Connecting' : `Checked ${age < 60000 ? 'just now' : `${Math.floor(age / 60000)}m ago`}`}`;
+    }
+    if (refs.notice) {
+      const messages = [];
+      if (state.loadError) messages.push(`${state.data ? 'Could not refresh. Showing the last successful snapshot' : 'Could not load shipments'}${state.lastLoaded ? ` from ${timeLabel(new Date(state.lastLoaded))} WIB` : ''}. ${state.loadError} Use Refresh to retry.`);
+      else if (stale) messages.push('This snapshot is over 3 minutes old. Refresh to check the latest pickup confirmations.');
+      if (state.incomplete) messages.push('The service returned a limited shipment list. Counts may be incomplete; refresh after the shipment service has updated.');
+      if (state.data?.hard_set?.enabled === false) messages.push('Automatic arrangement is paused. Existing bookings are still tracked.');
+      refs.notice.textContent = messages.join(' ');
+      refs.notice.hidden = !messages.length;
     }
   };
 
@@ -790,33 +629,77 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const requestJson = async (url, options = {}) => {
-    const response = await fetch(url, {
-      cache: 'no-store',
-      credentials: 'same-origin',
-      headers: { Accept: 'application/json', ...(options.headers || {}) },
-      ...options
-    });
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok || payload.ok === false) throw new Error(payload.error || 'Request failed.');
-    return payload;
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 30000);
+    try {
+      const response = await fetch(url, {
+        ...options,
+        cache: 'no-store',
+        credentials: 'same-origin',
+        headers: { Accept: 'application/json', ...(options.headers || {}) },
+        signal: controller.signal
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok || !payload || payload.ok === false) throw new Error(payload?.error || 'Shipment service is unavailable.');
+      return payload;
+    } catch (error) {
+      if (error.name === 'AbortError') throw new Error('Shipment service timed out.');
+      throw error;
+    } finally {
+      window.clearTimeout(timeout);
+    }
   };
 
-  const load = async () => {
+  const load = async ({ showRules = false } = {}) => {
     if (state.loading) return;
     state.loading = true;
-    state.windowNow = new Date();
     refs.refresh?.setAttribute('disabled', '');
+    refs.map?.setAttribute('aria-busy', 'true');
+    renderStatus();
     try {
-      state.data = await requestJson(`${endpoint}?limit=500`);
+      let payload = await requestJson(`${endpoint}?limit=500`);
+      if (!Array.isArray(payload.orders)) throw new Error('Shipment service returned an incomplete response.');
+      const orders = [...payload.orders];
+      const first = payload;
+      let cursor = 0;
+      while (payload.pagination?.has_more) {
+        const next = Number(payload.pagination.next_after_id);
+        const through = Number(payload.pagination.through_id);
+        if (!Number.isSafeInteger(next) || next <= cursor || !Number.isSafeInteger(through) || through < next) throw new Error('Shipment pagination could not be completed.');
+        cursor = next;
+        payload = await requestJson(`${endpoint}?limit=500&after_id=${cursor}&through_id=${through}`);
+        if (!Array.isArray(payload.orders) || !payload.pagination) throw new Error('Some shipment records could not be loaded.');
+        orders.push(...payload.orders);
+      }
+      state.data = { ...first, orders };
+      state.incomplete = !first.pagination && first.orders.length >= 500;
+      state.lastLoaded = Date.now();
+      state.windowNow = new Date();
+      if (state.followToday) state.day = schedule.dayKey(state.windowNow);
+      state.loadError = '';
       state.orderDetailCache.clear();
+      const accounts = [...new Map(orders.map(order => [`${order.platform}|${order.account_key}`, shortAccount(order)])).entries()].sort((a, b) => a[1].localeCompare(b[1]));
+      if (state.account && !accounts.some(([key]) => key === state.account)) accounts.push([state.account, refs.account?.selectedOptions[0]?.textContent || state.account]);
+      if (refs.account) {
+        refs.account.innerHTML = '<option value="">All shops</option>' + accounts.map(([key, label]) => `<option value="${escapeHtml(key)}">${escapeHtml(label)}</option>`).join('');
+        refs.account.value = state.account;
+      }
       renderAll();
-      if (state.tab === 'rules') showEditorAccess();
+      // A background poll must not overwrite an unsaved rule edit.
+      if (state.tab === 'rules' && (showRules || !state.workingPolicy)) showEditorAccess();
+      if (state.pickupEvent) {
+        const refreshed = new Map(orders.map(order => [orderIdentity(order), order]));
+        state.pickupEvent.group.orders = state.pickupEvent.group.orders.map(order => refreshed.get(orderIdentity(order)) || order);
+        renderPickupEvent();
+      }
     } catch (error) {
-      if (refs.live) refs.live.innerHTML = '<i></i> Unavailable';
-      if (refs.map) refs.map.innerHTML = `<p class="admin-empty">${escapeHtml(error.message)}</p>`;
+      state.loadError = error.message;
+      if (!state.data && refs.map) refs.map.innerHTML = '<div class="shipment-empty"><strong>Shipment status unavailable</strong><p>Refresh to retry. Counts will appear once the shipment service responds.</p></div>';
     } finally {
       state.loading = false;
       refs.refresh?.removeAttribute('disabled');
+      refs.map?.setAttribute('aria-busy', 'false');
+      renderStatus();
     }
   };
 
@@ -1016,6 +899,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const showEditorAccess = () => {
     const branch = Boolean(state.data?.access?.branch);
+    const ready = ['shopee', 'tiktok'].every(platform => state.data?.policy?.policy?.platforms?.[platform]?.regular);
+    let unavailable = root.querySelector('[data-shipment-rules-unavailable]');
+    if (!ready) {
+      if (!unavailable) {
+        refs.policyForm?.insertAdjacentHTML('beforebegin', '<p class="admin-empty" data-shipment-rules-unavailable>Pickup rules are unavailable. Refresh to retry.</p>');
+      }
+      if (refs.policyForm) refs.policyForm.hidden = true;
+      if (refs.unlock) refs.unlock.hidden = true;
+      if (refs.applyMonday) refs.applyMonday.hidden = true;
+      return;
+    }
+    unavailable?.remove();
     if (refs.unlock) refs.unlock.hidden = branch;
     if (refs.policyForm) refs.policyForm.hidden = false;
     if (refs.applyMonday) refs.applyMonday.hidden = !branch;
@@ -1044,35 +939,45 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   refs.refresh?.addEventListener('click', load);
-  refs.map?.addEventListener('click', (event) => {
-    const pickupMarker = event.target.closest('[data-pickup-event-index]');
-    if (pickupMarker) {
-      openPickupInspector('confirmation', pickupMarker.dataset.pickupEventIndex, pickupMarker);
-      return;
+  refs.map?.addEventListener('click', event => {
+    const group = event.target.closest('[data-shipment-group]');
+    if (group) return openPickupInspector('window', Number(group.dataset.shipmentGroup), group);
+    const order = event.target.closest('[data-shipment-order]');
+    if (order) return openPickupInspector('order', Number(order.dataset.shipmentOrder), order);
+    if (event.target.closest('[data-shipment-more]')) {
+      const firstNew = state.otherLimit;
+      state.otherLimit += 20;
+      renderSchedule();
+      refs.map.querySelector(`[data-shipment-order="${firstNew}"]`)?.focus({ preventScroll: true });
     }
-    const pickupWindow = event.target.closest('[data-pickup-window-index]');
-    if (pickupWindow) {
-      openPickupInspector('window', pickupWindow.dataset.pickupWindowIndex, pickupWindow);
-      return;
-    }
-    const button = event.target.closest('[data-change-pickup]');
-    if (!button) return;
-    openRescheduler({
-      platform: button.dataset.platform || '',
-      account_key: button.dataset.accountKey || '',
-      order_id: button.dataset.orderId || '',
-      package_id: button.dataset.packageId || '',
-      ...((state.data?.orders || []).find((order) =>
-        String(order.platform || '') === String(button.dataset.platform || '')
-        && String(order.account_key || '') === String(button.dataset.accountKey || '')
-        && String(order.order_id || '') === String(button.dataset.orderId || '')
-        && String(order.package_id || '') === String(button.dataset.packageId || '')
-      ) || {})
-    });
   });
+  root.querySelectorAll('[data-shipment-filter]').forEach(button => button.addEventListener('click', () => {
+    state.filter = state.filter === button.dataset.shipmentFilter ? 'all' : button.dataset.shipmentFilter;
+    state.otherLimit = 8;
+    renderSchedule();
+  }));
+  const changeDay = (day, followToday = false) => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || Number.isNaN(+schedule.bounds(day).start)) return;
+    state.day = day;
+    state.followToday = followToday;
+    state.otherLimit = 8;
+    renderSchedule();
+  };
+  root.querySelectorAll('[data-shipment-day]').forEach(button => button.addEventListener('click', () => {
+    changeDay(schedule.dayKey(new Date(+schedule.bounds(state.day).start + Number(button.dataset.shipmentDay) * 86400000)));
+  }));
+  root.querySelector('[data-shipment-today]')?.addEventListener('click', () => changeDay(schedule.dayKey(new Date()), true));
+  refs.date?.addEventListener('change', () => changeDay(refs.date.value));
+  refs.account?.addEventListener('change', () => { state.account = refs.account.value; state.otherLimit = 8; renderSchedule(); });
+  refs.search?.addEventListener('input', () => { state.query = refs.search.value; state.otherLimit = 8; renderSchedule(); });
   refs.eventOverlay?.addEventListener('click', (event) => {
     if (event.target === refs.eventOverlay || event.target.closest('[data-arrangement-event-close]')) {
       closePickupEvent();
+      return;
+    }
+    if (event.target.closest('[data-inspector-change-pickup]')) {
+      const order = state.pickupEvent?.group?.orders?.[state.pickupEvent.selectedIndex];
+      if (order) { closePickupEvent(); openRescheduler(order); refs.rescheduler?.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
       return;
     }
     const orderButton = event.target.closest('[data-pickup-event-order]');
@@ -1113,7 +1018,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (event.shiftKey && document.activeElement === first) {
       event.preventDefault();
       last.focus();
-    } else if (!event.shiftKey && document.activeElement === last) {
+    } else if (!event.shiftKey && (document.activeElement === last || !focusable.includes(document.activeElement))) {
       event.preventDefault();
       first.focus();
     }
@@ -1147,7 +1052,7 @@ document.addEventListener('DOMContentLoaded', () => {
           pickup_time_id: selected.pickup_time_id
         })
       });
-      state.data = { ...state.data, orders: Array.isArray(result.orders) ? result.orders : state.data.orders };
+      await load();
       state.orderDetailCache.clear();
       state.reschedule = null;
       renderRescheduler();
@@ -1226,7 +1131,7 @@ document.addEventListener('DOMContentLoaded', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: form.get('username'), password: form.get('password') })
       });
-      await load();
+      await load({ showRules: true });
     } catch (error) {
       const existing = refs.unlock.querySelector('.admin-form-error');
       if (existing) existing.remove();
@@ -1239,7 +1144,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (refs.error) refs.error.hidden = true;
     refs.save?.setAttribute('disabled', '');
     try {
-      state.data = await requestJson(endpoint, {
+      const result = await requestJson(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1247,7 +1152,8 @@ document.addEventListener('DOMContentLoaded', () => {
           expected_revision: Number(state.data?.policy?.revision || 0)
         })
       });
-      renderAll();
+      state.data = { ...state.data, policy: result.policy || state.data?.policy };
+      await load();
       state.workingPolicy = null;
       setTab('schedule');
     } catch (error) {
@@ -1260,6 +1166,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  window.setInterval(() => {
+    if (document.hidden || !root.classList.contains('is-active')) return;
+    state.windowNow = new Date();
+    if (state.followToday) state.day = schedule.dayKey(state.windowNow);
+    renderStatus();
+    if (state.tab === 'schedule' && !state.pickupEvent) renderSchedule();
+  }, 30000);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && root.classList.contains('is-active') && (!state.lastLoaded || Date.now() - state.lastLoaded > 60000)) load();
+  });
   window.addEventListener('jg-shipment-arrangement-refresh', load);
   window.setInterval(() => {
     if (!document.hidden && root.classList.contains('is-active')) load();

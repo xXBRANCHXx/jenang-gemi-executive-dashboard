@@ -88,7 +88,12 @@ try {
             jg_shipment_arrangement_json($result);
         }
         $limit = max(25, min(500, (int) ($_GET['limit'] ?? 300)));
-        $result = jg_shipment_arrangement_request('GET', '/fulfillment/arrangement-map?limit=' . $limit);
+        $query = http_build_query([
+            'limit' => $limit,
+            'after_id' => max(0, (int) ($_GET['after_id'] ?? 0)),
+            'through_id' => max(0, (int) ($_GET['through_id'] ?? 0)),
+        ]);
+        $result = jg_shipment_arrangement_request('GET', '/fulfillment/arrangement-map?' . $query);
         $result['access'] = $access;
         jg_shipment_arrangement_json($result);
     }

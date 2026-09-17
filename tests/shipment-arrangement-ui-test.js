@@ -27,36 +27,20 @@ assert(
     && admin.includes("CustomEvent('jg-shipment-arrangement-refresh')"),
   'The dashboard router must activate and refresh Shipment Arrangement.'
 );
+const model = fs.readFileSync(path.join(root, 'shipment-schedule.js'), 'utf8');
+const boardStyles = fs.readFileSync(path.join(root, 'shipment-arrangement.css'), 'utf8');
 assert(
   dashboard.includes('data-arrangement-tab="schedule"')
     && dashboard.includes('data-arrangement-tab="rules"')
-    && script.includes('admin-arrangement-deadline-event')
-    && script.includes('order.order_id')
-    && script.includes('order.account_key'),
-  'Schedule must show every unpicked order directly on the pickup-deadline timeline.'
-);
-assert(
-  script.includes('setTab(button.dataset.arrangementTab)')
-    && script.includes('WINDOW_BEFORE_HOURS = 8')
-    && script.includes('WINDOW_AFTER_HOURS = 24')
-    && script.includes('orderDeadline(order)')
-    && script.includes('pickupConfirmed(order)')
-    && script.includes('return !pickupConfirmed(order) && deadline')
-    && script.includes('order.pickup_confirmed')
-    && script.includes('pickupConfirmationGroups')
-    && script.includes('pickupWindowGroups')
-    && script.includes('admin-arrangement-pickup-window')
-    && script.includes('Window passed · ${counts.awaiting} awaiting')
-    && script.includes('admin-arrangement-pickup-marker')
-    && script.includes('data-change-pickup')
-    && script.includes("'pickup-reschedule'")
-    && script.includes('order.marketplace_status')
-    && script.includes("'SHIPPED'")
-    && !script.includes('shipment_arranged || order.pickup_start_at')
-    && dashboard.includes('Apply Monday to all days')
-    && script.includes('admin-arrangement-rule-editor-card')
-    && script.includes('data-advanced-platform-tab'),
-  'The planner must use a rolling ship-by window, remove confirmed pickups, and retain visual rule cards and focused advanced settings.'
+    && dashboard.includes('shipment-schedule.js')
+    && dashboard.includes('shipment-arrangement.css')
+    && dashboard.includes('data-shipment-date')
+    && dashboard.includes('data-shipment-search')
+    && dashboard.includes('data-shipment-notice')
+    && script.includes('payload.pagination?.has_more')
+    && model.includes('const prepared =')
+    && model.includes('const confirmed ='),
+  'Shipment board must expose date/search/status controls, explicit stale state, and complete pagination with separate preparation/collection facts.'
 );
 assert(
   dashboard.includes('Branch-tier credentials')
@@ -71,23 +55,17 @@ assert(
     && shipmentMarkup.includes('data-arrangement-event-orders')
     && shipmentMarkup.includes('data-arrangement-order-detail')
     && shipmentMarkup.includes('<nav aria-label="Orders in this pickup"')
-    && !shipmentMarkup.includes('<aside aria-label="Orders in this pickup"')
-    && script.includes('admin-arrangement-pickup-preview')
-    && script.includes('data-pickup-event-index')
-    && script.includes('data-pickup-window-index')
-    && script.includes('orderIds.slice(0, 3)')
+    && script.includes('data-shipment-group')
+    && script.includes('data-shipment-order')
     && script.includes("openPickupInspector('window'")
+    && script.includes("openPickupInspector('order'")
     && script.includes('loadPickupEventOrder(0)')
-    && script.includes('loadPickupEventOrder')
     && script.includes('state.orderDetailCache')
     && script.includes('document.body.append(refs.eventOverlay)')
     && script.includes('data-retry-pickup-order')
-    && script.includes('pickupOrderState')
     && script.includes("action: 'order-detail'")
-    && script.includes('renderOrderBreakdown')
-    && script.includes('Shopee deductions')
     && endpoint.includes('/fulfillment/order-detail'),
-  'Pickup markers and booked windows must open every order, auto-load details, show pickup status, and support retry.'
+  'Every window and individual shipment must open the shared inspector with order details, preparation and retry.'
 );
 assert(
   dashboard.includes('See the complete decision path')
@@ -114,38 +92,15 @@ assert(
   'ZERO Shopee retry, deadline, drop-off, and Weekend Dependent behavior must be visual, interactive, revisioned, and visible before unlock.'
 );
 assert(
-  styles.includes('.admin-arrangement-deadline-chart')
-    && styles.includes('.admin-arrangement-now-line')
-    && styles.includes('.admin-arrangement-pickup-marker')
-    && styles.includes('.admin-arrangement-pickup-preview')
+  boardStyles.includes('.shipment-lane')
+    && boardStyles.includes('.shipment-now')
+    && boardStyles.includes('.shipment-window')
+    && boardStyles.includes('.shipment-deadline')
+    && boardStyles.includes('@media (max-width: 680px)')
+    && boardStyles.includes("html[data-admin-theme='light']")
     && styles.includes('.admin-arrangement-event-dialog')
-    && styles.includes('.admin-arrangement-order-timeline')
-    && styles.includes('.admin-arrangement-finance-grid')
-    && styles.includes('.admin-arrangement-pickup-window')
-    && styles.includes('--pickup-window-width')
-    && styles.includes('--pickup-label-lane')
-    && styles.includes('bottom: 0')
-    && styles.includes('.admin-arrangement-pickup-window-label')
-    && styles.includes('.admin-arrangement-order-state.is-picked-up')
-    && styles.includes('.admin-arrangement-event-progress')
-    && styles.includes('.admin-arrangement-event-layout > nav')
-    && styles.includes('grid-template-rows: auto minmax(0, 1fr)')
-    && styles.includes('border-left: 2px dotted #34d399')
-    && styles.includes('.admin-arrangement-rescheduler')
-    && styles.includes('.admin-arrangement-deadline-event')
-    && styles.includes('grid-column: var(--event-column) / span 3')
-    && styles.includes('.admin-arrangement-status-guide .is-booked')
-    && styles.includes('.admin-arrangement-rule-card-grid')
-    && styles.includes('.admin-arrangement-advanced-tabs')
-    && styles.includes('.admin-arrangement-smart-policy')
-    && styles.includes('.admin-arrangement-decision-flow')
-    && styles.includes('.admin-arrangement-smart-controls')
-    && styles.includes('.admin-arrangement-switch-control')
-    && styles.includes(".admin-arrangement-day-toggle input[type='checkbox']")
-    && styles.includes('width: 12px')
-    && styles.includes('.admin-arrangement-workspace')
-    && styles.includes('@media (max-width: 680px)'),
-  'The 32-hour deadline chart, rule cards, and advanced marketplace tabs must have responsive styling.'
+    && styles.includes('.admin-arrangement-rule-card-grid'),
+  'The pickup board must keep responsive themed timeline lanes and the existing inspector and rule editor.'
 );
 assert(
   styles.includes('.admin-shipment-arrangement {\n  --arrangement-shopee: #ff8a3d;\n  --arrangement-tiktok: #42d7c5;\n  display: none;')
@@ -155,12 +110,11 @@ assert(
 assert(
   !shipmentMarkup.includes('admin-modal-shell')
     && !shipmentMarkup.includes('admin-icon-action')
-    && !shipmentMarkup.includes('Needs attention')
     && shipmentMarkup.includes('data-arrangement-refresh>Refresh</button>'),
   'Shipment Arrangement must avoid scrolling modals, icon-only pills, and irrelevant attention panels.'
 );
 assert(
-  !shipmentStyles.includes('gradient('),
+  !shipmentStyles.includes('gradient(') && !boardStyles.includes('gradient('),
   'Shipment Arrangement must use flat fills without gradients.'
 );
 
