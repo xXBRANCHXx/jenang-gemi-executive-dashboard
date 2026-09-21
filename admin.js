@@ -1,3 +1,4 @@
+import { initZeroCatalogEditor } from './zero-catalog-editor.js?v=1';
 const SOURCE_COLORS = {
   youtube: '#ff5252',
   facebook: '#ffd400',
@@ -10316,9 +10317,17 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
+  const zeroCatalogEditor = initZeroCatalogEditor(document.querySelector('[data-zero-catalog-editor]'), postZeroStore, (data) => {
+    state.zeroStore.items = data.items || [];
+    state.zeroStore.discounts = data.discounts || [];
+    state.zeroStore.availableSkus = data.available_skus || [];
+    renderZeroStore();
+  });
+
   const renderZeroStore = () => {
     if (zeroStoreRefs.panel) zeroStoreRefs.panel.hidden = state.website.site !== 'zero';
     if (state.website.site !== 'zero') return;
+    zeroCatalogEditor?.setData({items: state.zeroStore.items, discounts: state.zeroStore.discounts, available_skus: state.zeroStore.availableSkus});
     const items = state.zeroStore.items;
     const discounts = state.zeroStore.discounts;
     const itemByKey = new Map(items.map((item) => [String(item.item_key || ''), item]));
@@ -10379,6 +10388,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const loadZeroStore = async () => {
     const data = await requestJson(zeroStoreActionUrl('list'));
+    state.zeroStore.availableSkus = data.available_skus || [];
     state.zeroStore.items = Array.isArray(data.items) ? data.items : [];
     state.zeroStore.discounts = Array.isArray(data.discounts) ? data.discounts : [];
     state.zeroStore.voucher = data.voucher || null;

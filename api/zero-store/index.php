@@ -5,8 +5,10 @@ require_once dirname(__DIR__, 2) . '/auth.php';
 require_once dirname(__DIR__, 2) . '/sku-db-bootstrap.php';
 require_once dirname(__DIR__, 2) . '/astra-stock-bootstrap.php';
 require_once dirname(__DIR__, 2) . '/zero-voucher-bootstrap.php';
+require_once dirname(__DIR__, 2) . '/zero-store-pricing.php';
 
 header('Content-Type: application/json; charset=utf-8');
+header('Cache-Control: no-store');
 $origin = (string) ($_SERVER['HTTP_ORIGIN'] ?? '');
 if (in_array($origin, ['https://zerofoods.id', 'https://www.zerofoods.id'], true)) {
     header('Access-Control-Allow-Origin: ' . $origin);
@@ -102,7 +104,7 @@ function zero_store_slug(string $value): string
 
 function zero_store_normalize_name(string $value): string
 {
-    return strtolower(preg_replace('/[^a-z0-9]+/', ' ', $value) ?? '');
+    return trim(preg_replace('/[^a-z0-9]+/', ' ', strtolower($value)) ?? '');
 }
 
 function zero_store_fallback_sku(string $productSlug, string $optionId, string $sizeId): string
@@ -332,6 +334,7 @@ function zero_store_ensure_schema(PDO $pdo): void
             CONSTRAINT fk_zero_store_items_sku FOREIGN KEY (sku) REFERENCES sku_skus(sku) ON DELETE SET NULL
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
     );
+    zero_store_catalog_columns($pdo);
     $pdo->exec(
         'CREATE TABLE IF NOT EXISTS zero_store_discounts (
             id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -447,6 +450,7 @@ function zero_store_sku_index(PDO $pdo): array
             s.inventory_mode,
             s.skip_scan,
             s.cogs,
+            s.sale_price,
             s.updated_at
          FROM sku_skus s
          INNER JOIN sku_brands b ON b.id = s.brand_id
@@ -471,6 +475,9 @@ function zero_store_sku_index(PDO $pdo): array
         $record = [
             'sku' => $sku,
             'tag' => (string) ($row['tag'] ?? ''),
+            'product_name' => (string) ($row['product_name'] ?? ''),
+            'option_name' => (string) ($row['flavor_name'] ?? ''),
+            'sku_price' => (float) ($row['sale_price'] ?? 0),
             'product_slug' => $productSlug,
             'option_id' => $optionId,
             'size_id' => $sizeId,
@@ -518,19 +525,7 @@ function zero_store_seed_items(PDO $pdo): void
             :fallback_sku, :sku, :site_price, 1, :created_at, :updated_at
         )
         ON DUPLICATE KEY UPDATE
-            product_slug = VALUES(product_slug),
-            product_name = VALUES(product_name),
-            option_id = VALUES(option_id),
-            option_name = VALUES(option_name),
-            size_id = VALUES(size_id),
-            size_label = VALUES(size_label),
-            fallback_sku = VALUES(fallback_sku),
-            sku = CASE
-                WHEN VALUES(sku) IS NOT NULL AND VALUES(sku) <> "" THEN VALUES(sku)
-                ELSE zero_store_items.sku
-            END,
-            site_price = IF(zero_store_items.site_price <= 0, VALUES(site_price), zero_store_items.site_price),
-            updated_at = VALUES(updated_at)'
+            sku = IF(zero_store_items.sku IS NULL, VALUES(sku), zero_store_items.sku)'
     );
 
     foreach (zero_store_website_items() as $item) {
@@ -584,15 +579,16 @@ function zero_store_load(PDO $pdo): array
     $skuIndex = zero_store_sku_index($pdo);
     $explicitSkuLinks = zero_store_explicit_sku_links();
     $items = [];
-    $stmt = $pdo->query('SELECT item_key, product_slug, product_name, option_id, option_name, size_id, size_label, fallback_sku, sku, site_price, is_active, updated_at FROM zero_store_items ORDER BY product_slug, option_name, size_id');
+    $stmt = $pdo->query('SELECT item_key, product_slug, product_name, option_id, option_name, size_id, size_label, fallback_sku, sku, site_price, price_source, image_url, option_group, is_active, updated_at FROM zero_store_items ORDER BY product_slug, option_name, size_id');
     foreach ($stmt->fetchAll() as $row) {
         $itemKey = (string) ($row['item_key'] ?? '');
-        $sku = (string) ($explicitSkuLinks[$itemKey] ?? $row['sku'] ?? '');
+        $sku = (string) ($row['sku'] ?? $explicitSkuLinks[$itemKey] ?? '');
         $skuRow = $sku !== '' ? ($skuIndex['by_sku'][$sku] ?? null) : null;
         if (!is_array($skuRow)) {
             $skuRow = $skuIndex['by_selector'][$itemKey] ?? null;
         }
         $linkedSku = is_array($skuRow) ? (string) ($skuRow['sku'] ?? '') : $sku;
+        $row['sku_price'] = (float) ($skuRow['sku_price'] ?? 0);
         $items[] = [
             'item_key' => $itemKey,
             'sku' => $linkedSku,
@@ -611,7 +607,11 @@ function zero_store_load(PDO $pdo): array
             'inventory_mode' => is_array($skuRow) ? (string) ($skuRow['inventory_mode'] ?? '') : '',
             'skip_scan' => is_array($skuRow) && (bool) ($skuRow['skip_scan'] ?? false),
             'cogs' => is_array($skuRow) ? number_format((float) ($skuRow['cogs'] ?? 0), 2, '.', '') : null,
-            'price' => number_format((float) ($row['site_price'] ?? 0), 2, '.', ''),
+            'price' => zero_store_base_price($row),
+            'price_source' => zero_store_price_source($row),
+            'sku_price' => $row['sku_price'],
+            'image_url' => (string) ($row['image_url'] ?? ''),
+            'option_group' => (string) ($row['option_group'] ?? ''),
             'site_price' => number_format((float) ($row['site_price'] ?? 0), 2, '.', ''),
             'is_active' => (int) ($row['is_active'] ?? 0),
             'updated_at' => (string) ($row['updated_at'] ?? ''),
@@ -622,6 +622,7 @@ function zero_store_load(PDO $pdo): array
         'ok' => true,
         'items' => $items,
         'discounts' => zero_store_discounts($pdo),
+        'available_skus' => array_values($skuIndex['by_selector']),
         'meta' => ['generated_at' => gmdate(DATE_ATOM)],
     ];
 }
@@ -639,7 +640,9 @@ function zero_store_catalog(PDO $pdo): array
             continue;
         }
         foreach ((array) ($discount['item_keys'] ?? []) as $itemKey) {
-            $discountByItem[(string) $itemKey] = $discount;
+            if ((int) ($discount['id'] ?? 0) > (int) ($discountByItem[(string) $itemKey]['id'] ?? 0)) {
+                $discountByItem[(string) $itemKey] = $discount;
+            }
         }
     }
 
@@ -648,13 +651,7 @@ function zero_store_catalog(PDO $pdo): array
         $itemKey = (string) ($item['item_key'] ?? '');
         $price = (float) ($item['price'] ?? 0);
         $discount = $discountByItem[$itemKey] ?? null;
-        $salePrice = $price;
-        if (is_array($discount)) {
-            $amount = (float) ($discount['amount'] ?? 0);
-            $salePrice = ($discount['discount_type'] ?? '') === 'percent'
-                ? $price - ($price * ($amount / 100))
-                : $price - $amount;
-        }
+        $salePrice = zero_store_discount_price($price, $discount);
         $stock = $item['stock'];
         $linked = !empty($item['sku_linked']);
 
@@ -672,8 +669,10 @@ function zero_store_catalog(PDO $pdo): array
             'size_label' => (string) ($item['size_label'] ?? ''),
             'stock' => $linked ? (int) $stock : null,
             'cogs' => $linked ? (float) ($item['cogs'] ?? 0) : null,
-            'price' => (int) round($price),
-            'sale_price' => max(0, (int) round($salePrice)),
+            'image_url' => (string) ($item['image_url'] ?? ''),
+            'option_group' => (string) ($item['option_group'] ?? ''),
+            'price' => $price,
+            'sale_price' => $salePrice,
             'status' => (int) ($item['is_active'] ?? 0) === 1 ? 'active' : 'inactive',
             'available' => (int) ($item['is_active'] ?? 0) === 1 && $linked && (int) $stock > 0 && $price > 0,
             'discount' => is_array($discount) ? [
@@ -790,6 +789,10 @@ try {
         zero_store_json($data);
     }
 
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        zero_store_json(['error' => 'Changes require POST.'], 405);
+    }
+
     if ($action === 'save_voucher') {
         try {
             $voucher = zero_voucher_save($pdo, $body);
@@ -799,6 +802,64 @@ try {
         $data = zero_store_load($pdo);
         $data['voucher'] = $voucher;
         zero_store_json($data);
+    }
+
+    if ($action === 'add_skus') {
+        $requested = array_values(array_unique(array_map('strval', (array) ($body['skus'] ?? []))));
+        if (!$requested || count($requested) > 100) zero_store_json(['error' => 'Choose between 1 and 100 SKU sizes.'], 422);
+        $index = zero_store_sku_index($pdo);
+        $allowed = array_column(array_values($index['by_selector']), null, 'sku');
+        $names = ['syrup' => 'ZERO Syrup', 'drops' => 'ZERO Drops', 'maple-topping' => 'ZERO Maple Topping', 'fiber-syrup' => 'ZFIT Fiber Syrup', 'acvs' => 'ZFIT ACVS'];
+        foreach ($requested as $sku) {
+            if (!isset($allowed[$sku])) zero_store_json(['error' => 'Choose a ZERO or ZFIT SKU from the SKU Database.'], 422);
+        }
+        $pdo->beginTransaction();
+        $insert = $pdo->prepare('INSERT INTO zero_store_items (item_key, product_slug, product_name, option_id, option_name, size_id, size_label, fallback_sku, sku, site_price, price_source, is_active, created_at, updated_at) VALUES (:item_key, :product_slug, :product_name, :option_id, :option_name, :size_id, :size_label, :fallback_sku, :sku, :site_price, "sku", 0, :created_at, :updated_at) ON DUPLICATE KEY UPDATE item_key = item_key');
+        foreach ($requested as $sku) {
+            $row = $allowed[$sku];
+            $insert->execute([
+                ':item_key' => $row['product_slug'] . ':' . $row['option_id'] . ':' . $row['size_id'],
+                ':product_slug' => $row['product_slug'], ':product_name' => $names[$row['product_slug']],
+                ':option_id' => $row['option_id'], ':option_name' => $row['option_name'] ?: 'Plain',
+                ':size_id' => $row['size_id'], ':size_label' => $row['size_id'],
+                ':fallback_sku' => zero_store_fallback_sku($row['product_slug'], $row['option_id'], $row['size_id']),
+                ':sku' => $sku, ':site_price' => $row['sku_price'], ':created_at' => $now, ':updated_at' => $now,
+            ]);
+        }
+        $pdo->commit();
+        zero_store_json(zero_store_load($pdo));
+    }
+
+    if ($action === 'save_variant') {
+        $product = zero_store_slug(zero_store_text($body['product_slug'] ?? '', 'Product', 80));
+        $option = zero_store_slug(zero_store_text($body['option_id'] ?? '', 'Flavor', 100));
+        $name = zero_store_text($body['option_name'] ?? '', 'Flavor name', 160);
+        $group = zero_store_text($body['option_group'] ?? '', 'Flavor group', 100, false);
+        $image = trim((string) ($body['image_url'] ?? ''));
+        if (strlen($image) > 1000 || ($image !== '' && !preg_match('~^(https://[^/\s]+/|/(?!/))~i', $image))) {
+            zero_store_json(['error' => 'Use an HTTPS image URL or a website image path.'], 422);
+        }
+        $changes = $body['items'] ?? [];
+        if (!is_array($changes) || !$changes || count($changes) > 100) zero_store_json(['error' => 'Choose at least one size to save.'], 422);
+        $exists = $pdo->prepare('SELECT item_key, sku FROM zero_store_items WHERE product_slug = ? AND option_id = ?');
+        $exists->execute([$product, $option]);
+        $existing = array_column($exists->fetchAll(), null, 'item_key');
+        $validated = [];
+        foreach ($changes as $change) {
+            $key = zero_store_item_key($change['item_key'] ?? '');
+            if (!isset($existing[$key])) zero_store_json(['error' => 'This size does not belong to the selected flavor. Reload the catalog.'], 422);
+            $source = (string) ($change['price_source'] ?? '');
+            if (!in_array($source, ['sku', 'website'], true)) zero_store_json(['error' => 'Choose a price source for each size.'], 422);
+            $price = zero_store_money($change['site_price'] ?? 0, 'Website price');
+            if ($source === 'website' && (float) $price <= 0 && !empty($change['is_active'])) zero_store_json(['error' => 'A visible size needs a website price above zero.'], 422);
+            $validated[] = [$source, $price, !empty($change['is_active']) ? 1 : 0, $now, $key];
+        }
+        $pdo->beginTransaction();
+        $update = $pdo->prepare('UPDATE zero_store_items SET price_source = ?, site_price = ?, is_active = ?, updated_at = ? WHERE item_key = ?');
+        foreach ($validated as $values) $update->execute($values);
+        $pdo->prepare('UPDATE zero_store_items SET option_name = ?, option_group = ?, image_url = ?, updated_at = ? WHERE product_slug = ? AND option_id = ?')->execute([$name, $group, $image, $now, $product, $option]);
+        $pdo->commit();
+        zero_store_json(zero_store_load($pdo));
     }
 
     if ($action === 'save_item') {
@@ -816,6 +877,7 @@ try {
             'UPDATE zero_store_items
              SET sku = :sku,
                  site_price = :site_price,
+                 price_source = "website",
                  is_active = :is_active,
                  updated_at = :updated_at
              WHERE item_key = :item_key'
