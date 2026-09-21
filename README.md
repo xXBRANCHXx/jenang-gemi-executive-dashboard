@@ -39,6 +39,34 @@ Private admin dashboard for `admin.jenanggemi.com` behind a public Launch Pad.
 - `/api/hard-set/`
 - `/api/marketplace-auth/` (authenticated Shopee status and renewal handoff)
 
+## ZERO website catalog
+
+Website → ZERO → Website catalog groups each flavor and all its sizes. Add flavor / size
+imports existing ZERO or ZFIT SKUs as hidden entries. Review the name, image, price,
+and visibility, then save the flavor. Use Create a new SKU for flavors that do not
+exist in the SKU Database yet.
+
+Use SKU price follows the SKU Database sale price. Website override fixes a separate
+website base price. The customer preview includes active scheduled discounts; event
+vouchers keep their existing compound/override behavior. Existing custom website
+prices are preserved. Old seeded prices follow the SKU price when it is set, with
+the saved website price as fallback when the SKU price is unset.
+
+The catalog API adds three columns to `zero_store_items` on first use:
+`price_source`, `image_url`, and `option_group`. No rows or order data are removed.
+Deploy this dashboard with the matching `official-zero-website` catalog update;
+the website reads flavors/sizes from the API and refreshes stored cart prices.
+
+Validation:
+
+- `php tests/zero-store-pricing-test.php`
+- Existing `zero-voucher-test.php`, `website-commerce-test.php`, `zero-commerce-test.php`
+- `node tests/zero-catalog-editor.cjs` (requires Playwright; set `PLAYWRIGHT_MODULE`
+  or install it locally, and optionally set `CHROMIUM_PATH`)
+
+The browser test intercepts saves and uses test SKUs. It does not write to a live
+catalog or place an order.
+
 ## Shopee self-service renewal
 
 **Dashboard → Settings → Shopee authorization** shows each configured shop and

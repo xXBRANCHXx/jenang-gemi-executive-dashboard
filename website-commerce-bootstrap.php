@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/zero-store-pricing.php';
+
 require_once __DIR__ . '/analytics-bootstrap.php';
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/sku-db-bootstrap.php';
@@ -410,6 +412,8 @@ function jg_website_catalog_item(PDO $skuPdo, string $platform, array $requested
     jg_astra_stock_sync($skuPdo);
 
     $prefix = jg_website_catalog_table_prefix($platform);
+    if ($platform === 'zero_website') zero_store_catalog_columns($skuPdo);
+    $zeroColumns = $platform === 'zero_website' ? ', i.product_slug, i.size_id, i.price_source, s.sale_price AS sku_price' : '';
     $itemKey = trim((string) ($requested['item_key'] ?? $requested['key'] ?? ''));
     $sku = strtoupper(trim((string) ($requested['sku'] ?? '')));
     if ($itemKey === '' && $sku === '') {
@@ -419,7 +423,7 @@ function jg_website_catalog_item(PDO $skuPdo, string $platform, array $requested
     $lookup = $itemKey !== '' ? $itemKey : $sku;
     $stmt = $skuPdo->prepare(
         "SELECT i.item_key, i.sku, i.product_name, i.option_name, i.size_label, i.site_price, i.is_active,
-                s.current_stock, s.cogs
+                s.current_stock, s.cogs {$zeroColumns}
          FROM {$prefix}_items i
          LEFT JOIN sku_skus s ON s.sku = i.sku
          WHERE {$where}
@@ -437,7 +441,7 @@ function jg_website_catalog_item(PDO $skuPdo, string $platform, array $requested
     if ((int) ($row['current_stock'] ?? 0) < $quantity) {
         throw new InvalidArgumentException('An order item does not have enough stock.');
     }
-    $gross = (float) ($row['site_price'] ?? 0);
+    $gross = $platform === 'zero_website' ? zero_store_base_price($row) : (float) ($row['site_price'] ?? 0);
     if ($gross <= 0) {
         throw new InvalidArgumentException('An order item does not have a valid website price.');
     }
@@ -459,13 +463,7 @@ function jg_website_catalog_item(PDO $skuPdo, string $platform, array $requested
         ':ends_on_date' => $today,
     ]);
     $discount = $discountStmt->fetch();
-    $net = $gross;
-    if (is_array($discount)) {
-        $amount = max(0.0, (float) ($discount['amount'] ?? 0));
-        $net = ($discount['discount_type'] ?? '') === 'percent'
-            ? $gross - ($gross * min(100, $amount) / 100)
-            : $gross - $amount;
-    }
+    $net = zero_store_discount_price($gross, is_array($discount) ? $discount : null);
     if ($platform === 'zero_website' && is_array($voucher)) {
         $net = zero_voucher_unit_price($gross, max(0, $net), $voucher);
     }

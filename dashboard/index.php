@@ -78,6 +78,7 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap">
+    <link rel="stylesheet" href="../zero-catalog-editor.css?v=<?php echo urlencode((string) @filemtime(dirname(__DIR__) . '/zero-catalog-editor.css')); ?>">
     <link rel="stylesheet" href="../admin.css?v=<?php echo urlencode($adminCssVersion ?: '1'); ?>">
     <link rel="stylesheet" href="../shipment-arrangement.css?v=<?php echo urlencode($shipmentArrangementCssVersion ?: '1'); ?>">
 </head>
@@ -1749,53 +1750,12 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
                         </div>
                     </article>
 
-                    <article class="admin-panel admin-panel-wide">
-                        <div class="admin-panel-head">
-                            <div>
-                                <span class="admin-panel-kicker">ZERO Store</span>
-                                <h3>Items For Sale</h3>
-                            </div>
-                            <span class="admin-panel-meta">SKU, stock, and COGS come from the SKU DB. Edit ZERO website price and availability here.</span>
-                        </div>
-                        <div class="admin-store-toolbar">
-                            <label class="admin-store-filter">
-                                <span class="admin-control-label">Product Filter</span>
-                                <select class="admin-select" data-zero-product-filter>
-                                    <option value="">All Products</option>
-                                    <option value="syrup">ZERO Syrup</option>
-                                    <option value="drops">ZERO Drops</option>
-                                    <option value="maple-topping">ZERO Maple Topping</option>
-                                </select>
-                            </label>
-                        </div>
-                        <form class="admin-store-form" data-zero-item-form>
-                            <input type="hidden" name="item_key">
-                            <input type="hidden" name="is_active" value="1">
-                            <label><span>SKU DB code</span><input name="sku" maxlength="12" placeholder="12 character SKU"></label>
-                            <label><span>Website price</span><input name="price" type="number" min="0" step="1" value="0" required></label>
-                            <label class="admin-checkbox-line"><input name="is_active_checkbox" type="checkbox" checked><span>Visible for sale on ZERO website</span></label>
-                            <button type="submit" class="admin-primary-btn">Save Website Settings</button>
-                        </form>
-                        <div class="admin-table-wrap">
-                            <table class="admin-table">
-                                <thead>
-                                    <tr>
-                                        <th>SKU</th>
-                                        <th>Product</th>
-                                        <th>Variant</th>
-                                        <th>Size</th>
-                                        <th>Stock</th>
-                                        <th>COGS</th>
-                                        <th>Price</th>
-                                        <th>Sale Status</th>
-                                        <th>Edit</th>
-                                    </tr>
-                                </thead>
-                                <tbody data-zero-item-table>
-                                    <tr><td colspan="9" class="admin-empty">Loading ZERO SKUs from the SKU DB...</td></tr>
-                                </tbody>
-                            </table>
-                        </div>
+                    <article class="admin-panel admin-panel-wide zero-catalog-panel" data-zero-catalog-editor>
+                        <div class="admin-panel-head"><div><span class="admin-panel-kicker">ZERO Store</span><h3>Website catalog</h3><p>Manage each flavor and all its sizes in one place.</p></div><div class="admin-inline-actions"><a class="admin-soft-btn" href="https://zerofoods.id/catalog/" target="_blank" rel="noopener">View website ↗</a><button type="button" class="admin-primary-btn" data-catalog-add>Add flavor / size</button></div></div>
+                        <div class="zero-catalog-toolbar"><label>Product<select data-catalog-product><option value="">All products</option><option value="syrup">ZERO Syrup</option><option value="drops">ZERO Drops</option><option value="maple-topping">ZERO Maple Topping</option><option value="fiber-syrup">ZFIT Fiber Syrup</option><option value="acvs">ZFIT ACVS</option></select></label><label>Find a flavor<input type="search" placeholder="Flavor or SKU…" data-catalog-search></label><span data-catalog-count></span></div>
+                        <p class="zero-catalog-status" data-catalog-status role="status" aria-live="polite"></p>
+                        <div class="zero-catalog-workspace"><div class="zero-catalog-list" data-catalog-list><p class="admin-empty">Loading flavors…</p></div><form data-catalog-editor-form class="zero-catalog-editor"><p class="admin-empty">Select a flavor to edit its sizes.</p></form></div>
+                        <dialog class="zero-catalog-dialog" data-catalog-add-dialog><form data-catalog-add-form><div class="admin-panel-head"><div><span class="admin-panel-kicker">SKU Database → Website</span><h3>Add flavor / size</h3></div><button type="button" class="admin-soft-btn" data-catalog-add-close aria-label="Close">×</button></div><label>Find a SKU<input type="search" placeholder="Product, flavor, size or SKU…" data-catalog-candidate-search></label><div class="zero-catalog-candidates" data-catalog-candidates></div><p data-catalog-add-status role="status"></p><div class="admin-inline-actions"><a class="admin-soft-btn" href="/sku-db/new/" target="_blank" rel="noopener">Create a new SKU ↗</a><button type="submit" class="admin-primary-btn">Add selected sizes</button></div></form></dialog>
                     </article>
 
                     <article class="admin-panel admin-panel-wide">
