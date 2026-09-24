@@ -88,7 +88,7 @@
     if (state.scope === 'year') state.startDate = `${current.slice(0, 4)}-01-01`;
     if (['today', 'month', 'year'].includes(state.scope)) state.endDate = current;
   };
-  const grain = () => ['today', 'month'].includes(state.scope) ? 'day' : 'month';
+  const grain = () => state.scope === 'today' ? 'hour' : state.scope === 'month' ? 'day' : 'month';
   const comparisonSelection = () => ({
     product: state.compare, flavor: state.compareFlavor, volume: state.compareVolume,
     dimension: state.compareFlavor && state.compareVolume ? 'sku' : state.compareFlavor ? 'flavor' : state.compareVolume ? 'volume' : 'product'
@@ -234,7 +234,7 @@
       ? ((Number(comparison.quantity) - Number(previous.quantity)) / Number(previous.quantity)) * 100 : null;
     const revenueChange = comparison && previous && Number(previous.revenue) > 0
       ? ((Number(comparison.revenue) - Number(previous.revenue)) / Number(previous.revenue)) * 100 : null;
-    const periodLabel = state.data.grain === 'day' ? 'day' : 'month';
+    const periodLabel = ({ hour: 'hour', day: 'day', month: 'month' })[state.data.grain] || 'month';
     const comparisonLabel = projection ? 'projected month-end' : `latest ${periodLabel}`;
     const changeNote = (value, label) => value === null
       ? `<small>No earlier ${periodLabel} to compare</small>`
@@ -320,7 +320,7 @@
   };
 
   const renderHistory = () => {
-    const period = state.data.grain === 'day' ? 'Day' : 'Month';
+    const period = ({ hour: 'Hour (WIB)', day: 'Day', month: 'Month' })[state.data.grain] || 'Month';
     if (state.comparison) {
       const first = escapeHtml(state.data.selection.title);
       const second = escapeHtml(state.comparison.selection.title);
@@ -395,7 +395,8 @@
     rows.forEach((row, index) => {
       if (index % labelEvery !== 0 && index !== rows.length - 1) return;
       context.textAlign = index === 0 ? 'left' : index === rows.length - 1 ? 'right' : 'center';
-      const label = state.data.grain === 'day' ? new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: 'Asia/Jakarta' }).format(new Date(`${row.start_date}T00:00:00+07:00`)) : dateLabel(row.start_date);
+      const label = state.data.grain === 'hour' ? new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: 'Asia/Jakarta' }).format(new Date(row.start_at))
+        : state.data.grain === 'day' ? new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: 'Asia/Jakarta' }).format(new Date(`${row.start_date}T00:00:00+07:00`)) : dateLabel(row.start_date);
       context.fillText(label, x(index), height - 17);
     });
 
@@ -454,16 +455,18 @@
     refs.subtitle.textContent = selectionDescription(selection);
     refs.comparePrimary.textContent = selection.title;
     const daily = data.grain === 'day';
+    const hourly = data.grain === 'hour';
+    const periodLabel = hourly ? 'Hourly' : daily ? 'Daily' : 'Monthly';
     const comparing = Boolean(state.comparison);
-    refs.chartTitle.textContent = `${daily ? 'Daily' : 'Monthly'} sales ${comparing ? 'comparison' : 'pace'}`;
-    refs.chartEyebrow.textContent = comparing ? 'Same dates · recorded sales' : daily ? 'Recorded sales' : 'Actual + run rate';
-    refs.historyTitle.textContent = comparing ? 'Sales side by side' : `${daily ? 'Daily' : 'Monthly'} increase & decrease`;
-    refs.historyNote.textContent = comparing ? 'Both products use the same dates and sales channels.' : daily ? 'Recorded sales for each day in the selected range.' : 'The current month projection is separated from recorded sales.';
+    refs.chartTitle.textContent = `${periodLabel} sales ${comparing ? 'comparison' : 'pace'}`;
+    refs.chartEyebrow.textContent = comparing ? 'Same dates · recorded sales' : daily || hourly ? 'Recorded sales' : 'Actual + run rate';
+    refs.historyTitle.textContent = comparing ? 'Sales side by side' : `${periodLabel} increase & decrease`;
+    refs.historyNote.textContent = hourly ? 'Sales per hour in Jakarta time (WIB). The current hour is still in progress.' : comparing ? 'Both products use the same dates and sales channels.' : daily ? 'Recorded sales for each day in the selected range.' : 'The current month projection is separated from recorded sales.';
     refs.legend.innerHTML = comparing
       ? `<span class="is-actual"><i></i>${escapeHtml(selection.title)}</span><span class="is-comparison"><i></i>${escapeHtml(state.comparison.selection.title)}</span>`
       : `<span class="is-actual"><i></i>Actual to date</span>${data.forecast?.length ? '<span class="is-forecast"><i></i>Projected month-end</span>' : ''}`;
     refs.canvas.setAttribute('aria-label', `${refs.chartTitle.textContent}: ${selection.title}${comparing ? ` and ${state.comparison.selection.title}` : ''}, ${state.metric === 'revenue' ? 'revenue' : 'units'}. Values are in the table below.`);
-    refs.forecastMethod.textContent = comparing || daily ? `Recorded sales · ${longDate(data.start_date)} – ${longDate(data.end_date)} · Asia/Jakarta` : `Forecast note: ${data.forecast_method || 'Directional estimate based on recent history.'}`;
+    refs.forecastMethod.textContent = hourly ? `Hourly sales · ${longDate(data.start_date)} · Jakarta time (WIB). The current hour is still in progress.` : comparing || daily ? `Recorded sales · ${longDate(data.start_date)} – ${longDate(data.end_date)} · Asia/Jakarta` : `Forecast note: ${data.forecast_method || 'Directional estimate based on recent history.'}`;
     const hasSales = Number(data.totals?.quantity || 0) > 0 || Number(data.totals?.revenue || 0) > 0;
     refs.content.hidden = !hasSales && !comparing;
     refs.empty.hidden = hasSales || comparing;

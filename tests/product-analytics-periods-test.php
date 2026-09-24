@@ -31,12 +31,16 @@ $rows = [
     ['sku' => 'SYRUP-MINT', 'order_create_time' => '2026-09-24T16:59:59Z', 'platform' => 'shopee', 'quantity' => 9, 'revenue' => 450000],
 ];
 $selection = ['dimension' => 'product', 'flavor' => '', 'volume' => ''];
-$first = jg_orders_aggregate_product_analytics_rows($rows, $lookup, 'drops-4x', 'day', '2026-09-24', '2026-09-24', $selection);
-$second = jg_orders_aggregate_product_analytics_rows($rows, $lookup, 'syrup', 'day', '2026-09-24', '2026-09-24', $selection);
+$asOf = new DateTimeImmutable('2026-09-24T23:59:59+07:00');
+analytics_period_expect('hour', jg_orders_analytics_grain('hour'), 'The analytics endpoint must accept hourly grouping');
+$first = jg_orders_aggregate_product_analytics_rows($rows, $lookup, 'drops-4x', 'hour', '2026-09-24', '2026-09-24', $selection, $asOf);
+$second = jg_orders_aggregate_product_analytics_rows($rows, $lookup, 'syrup', 'hour', '2026-09-24', '2026-09-24', $selection, $asOf);
 analytics_period_expect(3, $first['totals']['quantity'], 'First product totals must exclude the second product');
 analytics_period_expect(9, $second['totals']['quantity'], 'Second product totals must exclude the first product');
-analytics_period_expect('2026-09-24', $first['history'][0]['key'], 'UTC evening sales belong to the next Jakarta day');
-analytics_period_expect(1, count($first['history']), 'Today has exactly one period');
+analytics_period_expect('2026-09-24T00:00', $first['history'][0]['key'], 'UTC evening sales belong to the next Jakarta day');
+analytics_period_expect(24, count($first['history']), 'Today has one period per elapsed hour');
+analytics_period_expect('2026-09-24T00:00:00+07:00', $first['history'][0]['start_at'], 'Hourly points must carry an explicit Jakarta offset');
+analytics_period_expect(9, $second['history'][23]['quantity'], 'Late-night sales belong to the final local hour');
 analytics_period_expect([], $first['forecast'], 'Today must not show a month-end forecast');
 analytics_period_expect(array_column($first['history'], 'key'), array_column($second['history'], 'key'), 'Comparison periods must align');
 
@@ -45,8 +49,44 @@ analytics_period_expect(24, count($month['history']), 'Month-to-date includes ev
 analytics_period_expect(0, $month['history'][0]['quantity'], 'Days without sales must be zero-filled');
 analytics_period_expect(3, $month['history'][23]['quantity'], 'Month-to-date includes today');
 analytics_period_expect([], $month['forecast'], 'Daily history must contain only recorded sales');
-$empty = jg_orders_aggregate_product_analytics_rows([], $lookup, 'syrup', 'day', '2026-09-24', '2026-09-24', $selection);
+$empty = jg_orders_aggregate_product_analytics_rows([], $lookup, 'syrup', 'hour', '2026-09-24', '2026-09-24', $selection, $asOf);
 analytics_period_expect(0, $empty['totals']['quantity'], 'No sales is a valid zero total');
-analytics_period_expect(1, count($empty['history']), 'Empty products must still align with the comparison period');
+analytics_period_expect(24, count($empty['history']), 'Empty products must still align with the hourly comparison period');
+
+$intraday = jg_orders_aggregate_product_analytics_rows([
+    ['sku' => 'DROPS-VAN', 'order_create_time' => '2026-09-23T17:00:00Z', 'quantity' => 1, 'revenue' => 60000],
+    ['sku' => 'DROPS-VAN', 'order_create_time' => '2026-09-23T17:59:59Z', 'quantity' => 2, 'revenue' => 120000],
+    ['sku' => 'DROPS-VAN', 'order_create_time' => '2026-09-23T18:00:00Z', 'quantity' => 4, 'revenue' => 240000],
+    ['sku' => 'DROPS-VAN', 'order_create_time' => '2026-09-24T06:15:00Z', 'quantity' => 2, 'revenue' => 120000],
+    ['sku' => 'DROPS-VAN', 'order_create_time' => '2026-09-24T07:00:00Z', 'quantity' => 99, 'revenue' => 5940000],
+], $lookup, 'drops-4x', 'hour', '2026-09-24', '2026-09-24', $selection, new DateTimeImmutable('2026-09-24T06:30:00Z'));
+analytics_period_expect(14, count($intraday['history']), 'At 13:30 WIB, return midnight through the current hour only');
+analytics_period_expect(3, $intraday['history'][0]['quantity'], 'Sales within an hour must combine');
+analytics_period_expect(4, $intraday['history'][1]['quantity'], 'Same-SKU sales in the next hour must stay separate');
+analytics_period_expect(0, $intraday['history'][2]['quantity'], 'Missing hours must remain visible as zero sales');
+analytics_period_expect(2, $intraday['history'][13]['quantity'], 'Current-hour sales must be included');
+analytics_period_expect(9, $intraday['totals']['quantity'], 'Hourly totals must exclude future-dated sales');
+analytics_period_expect(540000, array_sum(array_column($intraday['history'], 'revenue')), 'Hourly revenues must sum to the selected total');
+
+// Capture the real endpoint query before any database access or external sources.
+final class AnalyticsQueryCapture extends PDO
+{
+    public string $queryText = '';
+    public function __construct() {}
+    public function prepare(string $query, array $options = []): PDOStatement|false
+    {
+        $this->queryText = $query;
+        throw new RuntimeException('query captured');
+    }
+}
+foreach (['hour' => '%Y-%m-%d %H:00', 'day' => '%Y-%m-%d', 'month' => '%Y-%m-%d'] as $grain => $format) {
+    $pdo = new AnalyticsQueryCapture();
+    try {
+        jg_orders_product_analytics_payload($pdo, '2026-09-24', '2026-09-24', 'drops-4x', $grain, $selection);
+    } catch (RuntimeException $error) {
+        analytics_period_expect('query captured', $error->getMessage(), 'Only the query capture should stop the endpoint');
+    }
+    analytics_period_expect(true, str_contains($pdo->queryText, 'DATE_FORMAT(DATE_ADD(order_create_time, INTERVAL 7 HOUR), "' . $format . '")'), 'Database aggregation must preserve the requested time resolution');
+}
 
 echo "product-analytics-periods-test: ok\n";
