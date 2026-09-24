@@ -226,6 +226,11 @@ body:has(#admin-rail-nav.ed-nav) .daily-sheet-table :is(.daily-qty-head,.daily-q
 body:has(#admin-rail-nav.ed-nav) .admin-store-ops-metrics strong{margin:0}
 body:has(#admin-rail-nav.ed-nav) .daily-sheet-table .daily-rp-value{color:var(--ui-text)!important}
 body:has(#admin-rail-nav.ed-nav) .daily-sheet-table .daily-zero{color:var(--ui-muted)!important}
+/* Today uses the same lavender treatment as the product analytics projection. */
+body:has(#admin-rail-nav.ed-nav) .daily-sheet-table{--daily-today:#b48cff}
+:root[data-admin-theme='light'] body:has(#admin-rail-nav.ed-nav) .daily-sheet-table{--daily-today:#7449c7}
+body:has(#admin-rail-nav.ed-nav) .daily-sheet-table tbody tr.is-today :is(th,td){background:color-mix(in srgb,var(--daily-today) 5%,var(--ui-card))!important}
+body:has(#admin-rail-nav.ed-nav) .daily-sheet-table tbody tr.is-today :is(strong,small,.daily-qty-value,.daily-rp-value,.daily-zero){color:color-mix(in srgb,var(--daily-today) 72%,var(--ui-text))!important}
 @media(max-width:820px){body:has(#admin-rail-nav.ed-nav) .admin-store-ops-metrics>.admin-metric-card{padding:14px!important;min-height:112px}body:has(#admin-rail-nav.ed-nav) .admin-store-ops-metrics>.admin-metric-card:nth-child(odd){border-left:0!important}body:has(#admin-rail-nav.ed-nav) .admin-store-ops-metrics>.admin-metric-card:nth-child(n+3){border-top:1px solid var(--ui-border)!important}}
 /* SKU catalog and All Orders: flat workspaces with compact, consistent controls. */
 body:has(#admin-rail-nav.ed-nav) [data-sku-db] :is(.admin-sku-workbench,.admin-sku-composer,.admin-sku-dock,.admin-sku-table-shell,.admin-sku-reference-band,.admin-sku-master-card,.admin-sku-apply-band){background:transparent!important;border:0!important;border-radius:0!important;box-shadow:none!important}
