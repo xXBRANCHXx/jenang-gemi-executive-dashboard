@@ -11,7 +11,7 @@ const TARGET_INVOICE = 'WI26092465A38A70';
 function maintenance_connection(string $prefix): PDO {
  $config = jg_dashboard_load_local_config();
  $p = $prefix === '' ? 'db_' : $prefix . '_db_';
- return new PDO('mysql:host=' . $config[$p.'host'] . ';port=' . ($config[$p.'port'] ?? '3306') . ';dbname=' . $config[$p.'name'] . ';charset=utf8mb4', $config[$p.'user'], $config[$p.'password'], [PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE=>PDO::FETCH_ASSOC, PDO::ATTR_EMULATE_PREPARES=>false]);
+ return new PDO('mysql:host=' . (in_array($config[$p.'host'], ['local.server', 'local.server:3306'], true) ? 'localhost' : $config[$p.'host']) . ';port=' . ($config[$p.'port'] ?? '3306') . ';dbname=' . $config[$p.'name'] . ';charset=utf8mb4', $config[$p.'user'], $config[$p.'password'], [PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE=>PDO::FETCH_ASSOC, PDO::ATTR_EMULATE_PREPARES=>false]);
 }
 function maintenance_scan(PDO $pdo): array {
  $tables=$pdo->query("SELECT TABLE_NAME, TABLE_ROWS FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_TYPE='BASE TABLE'")->fetchAll();
@@ -28,7 +28,7 @@ function maintenance_scan(PDO $pdo): array {
 }
 try {
  $out=['ok'=>true,'invoice'=>TARGET_INVOICE,'databases'=>[]];
- foreach(['sku','', 'partner'] as $prefix){$pdo=maintenance_connection($prefix);$out['databases'][$prefix?:'executive']=maintenance_scan($pdo);if($prefix==='sku'){
+ foreach(isset($_GET['scope']) ? [(['sku'=>'sku','executive'=>'','partner'=>'partner'][$_GET['scope']] ?? 'sku')] : ['sku','', 'partner'] as $prefix){$pdo=maintenance_connection($prefix);$out['databases'][$prefix?:'executive']=maintenance_scan($pdo);if($prefix==='sku'){
   $s=$pdo->prepare('SELECT * FROM store_ops_walkin_invoices WHERE invoice_number=?');$s->execute([TARGET_INVOICE]);$out['invoice_record']=$s->fetch();
   $s=$pdo->prepare('SELECT * FROM store_ops_walkin_invoice_items WHERE invoice_number=?');$s->execute([TARGET_INVOICE]);$out['items']=$s->fetchAll();
   $out['inventory']=$pdo->query("SELECT sku,tag,brand_id,unit_id,product_id,flavor_id,volume,astra,current_stock,updated_at FROM sku_skus WHERE sku IN ('010103000502','010103001502','010103001602') OR (brand_id=1 AND product_id=3 AND flavor_id IN (5,15,16))")->fetchAll();
@@ -36,4 +36,4 @@ try {
   $out['items_schema']=$pdo->query('SHOW CREATE TABLE store_ops_walkin_invoice_items')->fetch();
  }}
  echo json_encode($out,JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
-} catch(Throwable $e){http_response_code(500);echo json_encode(['ok'=>false,'error'=>$e->getMessage()]);}
+} catch(Throwable $e){http_response_code(500);echo json_encode(['ok'=>false,'error'=>$e->getMessage(),'partial'=>$out??null]);}
