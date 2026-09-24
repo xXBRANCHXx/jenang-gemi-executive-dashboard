@@ -2675,6 +2675,7 @@ document.addEventListener('DOMContentLoaded', () => {
       data: null,
       summary: null,
       metric: 'revenue',
+      sheetPositionKey: '',
       loadedAt: 0,
       rows: [],
       customPlatforms: [],
@@ -3045,6 +3046,7 @@ document.addEventListener('DOMContentLoaded', () => {
     summaryQty: document.querySelector('[data-daily-summary-qty]'),
     summaryOrders: document.querySelector('[data-daily-summary-orders]'),
     summaryAverage: document.querySelector('[data-daily-summary-average]'),
+    sheetScroll: document.querySelector('[data-daily-sheet-scroll]'),
     sheetHead: document.querySelector('[data-daily-sheet-head]'),
     sheetBody: document.querySelector('[data-daily-sheet-body]'),
     sheetFoot: document.querySelector('[data-daily-sheet-foot]'),
@@ -7772,8 +7774,35 @@ document.addEventListener('DOMContentLoaded', () => {
     ), 'No Daily trend yet');
   };
 
+  const positionDailySheet = (month, today) => {
+    const positionKey = `${month}|${state.timezone}|${today}`;
+    if (state.daily.sheetPositionKey === positionKey) return;
+    requestAnimationFrame(() => {
+      const scroll = dailyRefs.sheetScroll;
+      if (!scroll || !scroll.clientHeight || state.activeView !== 'daily'
+        || state.daily.month !== month || state.daily.sheetPositionKey === positionKey) return;
+      const row = dailyRefs.sheetBody.querySelector('.is-today');
+      if (row) {
+        const headerHeight = dailyRefs.sheetHead.getBoundingClientRect().height;
+        const footerHeight = dailyRefs.sheetFoot.getBoundingClientRect().height;
+        const rowRect = row.getBoundingClientRect();
+        const visibleHeight = scroll.clientHeight - headerHeight - footerHeight;
+        // Center today inside the table, clear of its sticky headers and totals.
+        // Only move this scroll container; keep the page and horizontal position.
+        scroll.scrollTop += rowRect.top - scroll.getBoundingClientRect().top - scroll.clientTop
+          - headerHeight - Math.max(0, (visibleHeight - rowRect.height) / 2);
+      } else {
+        scroll.scrollTop = 0;
+      }
+      state.daily.sheetPositionKey = positionKey;
+    });
+  };
+
   const renderDailySheet = (dailyData) => {
     if (!dailyRefs.sheetHead || !dailyRefs.sheetBody || !dailyRefs.sheetFoot) return;
+    const scrollTop = dailyRefs.sheetScroll?.scrollTop || 0;
+    const scrollLeft = dailyRefs.sheetScroll?.scrollLeft || 0;
+    const today = todayDate();
     const accounts = Array.isArray(dailyData.accounts) ? dailyData.accounts : [];
     const columnCount = 1 + (accounts.length * 2) + 4;
     const accountHeaders = accounts.map((account) => `
@@ -7809,6 +7838,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     dailyRefs.sheetBody.innerHTML = dailyData.days.map((day) => {
+      const isToday = day.date === today;
       const accountCells = accounts.map((account) => {
         const accountDay = day.accounts.get(account.key) || { qty: 0, revenue: 0 };
         return `
@@ -7817,8 +7847,8 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
       }).join('');
       return `
-        <tr>
-          <th scope="row" class="daily-day-cell"><strong>${escapeHtml(day.label)}</strong><small>${escapeHtml(day.date)}</small></th>
+        <tr${isToday ? ' class="is-today"' : ''}>
+          <th scope="row" class="daily-day-cell"${isToday ? ' aria-current="date"' : ''}><strong>${escapeHtml(day.label)}</strong><small>${escapeHtml(day.date)}${isToday ? ' · Today' : ''}</small></th>
           ${accountCells}
           <td class="daily-number-cell daily-total-cell daily-qty-cell">${dailyQtyMarkup(day.qty)}</td>
           <td class="daily-number-cell daily-total-cell daily-rp-cell">${dailyRpMarkup(day.revenue)}</td>
@@ -7855,6 +7885,11 @@ document.addEventListener('DOMContentLoaded', () => {
         <td class="daily-number-cell daily-total-cell daily-rp-cell">${dailyRpMarkup(dailyData.totals.accountCount ? dailyData.totals.avgRevenue / dailyData.totals.accountCount : 0)}</td>
       </tr>
     `;
+    if (dailyRefs.sheetScroll) {
+      dailyRefs.sheetScroll.scrollTop = scrollTop;
+      dailyRefs.sheetScroll.scrollLeft = scrollLeft;
+    }
+    positionDailySheet(dailyData.month, today);
   };
 
   const renderDaily = (dailyData) => {
@@ -13630,6 +13665,7 @@ document.addEventListener('DOMContentLoaded', () => {
 		      return;
 		    }
 	    if (state.activeView === 'daily') {
+	      if (previousView !== 'daily') state.daily.sheetPositionKey = '';
 	      activateDailyViewInstantly();
 	      return;
 	    }
