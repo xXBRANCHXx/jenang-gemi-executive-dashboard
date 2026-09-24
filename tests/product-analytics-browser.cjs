@@ -8,6 +8,7 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const root = path.resolve(__dirname, '..');
 const php = process.env.PHP_BINARY || 'php';
 const requests = [];
+const clockTime = '2026-09-23T21:30:00Z'; // Sep 24, 04:30 in Jakarta; still Sep 23 in Los Angeles.
 let failCompare = false, failPrimary = false, failCatalog = false, slowToday = false;
 const products = [
   { key: 'drops-4x', label: 'Drops 4x', flavors: [{ key: 'vanilla', label: 'Vanilla' }], volumes: [{ key: '10-ml', label: '10 ML' }], variants: [{ flavor_key: 'vanilla', volume_key: '10-ml' }] },
@@ -26,11 +27,22 @@ const analytics = (params) => {
   if (grain === 'month') current.setUTCDate(1);
   while (current.toISOString().slice(0, 10) <= end) {
     const date = current.toISOString().slice(0, 10);
+    if (grain === 'hour') {
+      const hour = current.toISOString().slice(11, 13);
+      if (new Date(`${date}T${hour}:00:00+07:00`) > new Date(clockTime)) break;
+      history.push({ key: `${date}T${hour}:00`, start_date: date, start_at: `${date}T${hour}:00:00+07:00`, label: `${date} ${hour}:00`, quantity: 0, revenue: 0 });
+      current.setUTCHours(current.getUTCHours() + 1);
+      continue;
+    }
     history.push({ key: grain === 'day' ? date : date.slice(0, 7), start_date: date, label: grain === 'day' ? date : date.slice(0, 7), quantity: 0, revenue: 0 });
     if (grain === 'day') current.setUTCDate(current.getUTCDate() + 1);
     else current.setUTCMonth(current.getUTCMonth() + 1);
   }
   Object.assign(history.at(-1), { quantity, revenue: quantity * 60000 });
+  if (grain === 'hour' && history.length > 1) {
+    Object.assign(history[0], { quantity: quantity / 3, revenue: quantity * 20000 });
+    Object.assign(history.at(-1), { quantity: quantity * 2 / 3, revenue: quantity * 40000 });
+  }
   return { ok: true, grain, start_date: start, end_date: end, selection: { product, product_label: selected.label, title, dimension: params.get('dimension'), flavor, volume }, totals: { quantity, revenue: quantity * 60000 }, history, forecast: [], breakdowns: { flavors: [{ key: 'vanilla', label: 'Vanilla', quantity, revenue: quantity * 60000 }], volumes: [], accounts: [] } };
 };
 const server = http.createServer((req, res) => {
@@ -71,7 +83,20 @@ const server = http.createServer((req, res) => {
   try {
     const page = await browser.newPage({ viewport: { width: 1280, height: 1000 }, timezoneId: 'America/Los_Angeles' });
     const errors = []; page.on('pageerror', (error) => errors.push(error.message));
-    await page.clock.setFixedTime(new Date('2026-09-23T18:30:00Z')); // Sep 24 in Jakarta, Sep 23 in the browser.
+    await page.clock.setFixedTime(new Date(clockTime));
+    await page.addInitScript(() => {
+      for (const method of ['setTransform', 'fillText', 'arc']) {
+        const original = CanvasRenderingContext2D.prototype[method];
+        CanvasRenderingContext2D.prototype[method] = function (...args) {
+          if (this.canvas.matches('[data-history-chart]')) {
+            if (method === 'setTransform') window.analyticsChartDraw = { labels: [], points: 0 };
+            if (method === 'fillText') window.analyticsChartDraw.labels.push(args[0]);
+            if (method === 'arc') window.analyticsChartDraw.points++;
+          }
+          return original.apply(this, args);
+        };
+      }
+    });
     await page.route('https://fonts.googleapis.com/**', (route) => route.fulfill({ body: '' }));
     const base = `http://127.0.0.1:${server.address().port}`;
     const ready = () => page.waitForFunction(() => document.querySelector('[data-load-status] span')?.textContent.startsWith('Updated'));
@@ -79,10 +104,19 @@ const server = http.createServer((req, res) => {
     await page.goto(`${base}/dashboard/product-analytics/?product=drops-4x`); await ready();
     await page.waitForFunction(() => !document.querySelector('[data-compare-product]').disabled);
     assert.equal(lastRequest().start_date, '2026-05-03');
-    for (const [scope, start, grain] of [['today', '2026-09-24', 'day'], ['month', '2026-09-01', 'day'], ['year', '2026-01-01', 'month']]) {
+    for (const [scope, start, grain] of [['today', '2026-09-24', 'hour'], ['month', '2026-09-01', 'day'], ['year', '2026-01-01', 'month']]) {
       await page.locator(`[data-scope="${scope}"]`).click(); await ready();
       assert.equal(lastRequest().start_date, start); assert.equal(lastRequest().end_date, '2026-09-24'); assert.equal(lastRequest().grain, grain);
       assert.equal(await page.locator(`[data-scope="${scope}"]`).getAttribute('aria-pressed'), 'true');
+      if (scope === 'today') {
+        await page.waitForFunction(() => window.analyticsChartDraw?.labels.includes('04:00'));
+        assert.equal(await page.locator('[data-history-body] tr').count(), 5);
+        assert.equal(await page.evaluate(() => window.analyticsChartDraw.points), 5, 'Today must draw an hourly series, not a single daily point');
+        assert.match(await page.locator('#sales-history-title').innerText(), /Hourly/);
+        assert.match(await page.locator('[data-history-head]').innerText(), /Hour \(WIB\)/i);
+        assert.match(await page.locator('[data-history-body]').innerText(), /00:00/);
+        assert.match(await page.locator('[data-forecast-method]').innerText(), /current hour is still in progress/);
+      }
     }
     await page.locator('[data-scope="month"]').click(); await ready();
     await page.locator('[data-compare-product]').selectOption('syrup'); await ready();
@@ -123,6 +157,20 @@ const server = http.createServer((req, res) => {
     assert.equal(await page.locator('[data-kpis]').isVisible(), true); assert.equal(await page.locator('[data-comparison]').isVisible(), false);
     failCompare = false; await page.locator('[data-compare-retry]').click(); await ready();
     assert.equal(await page.locator('[data-comparison]').isVisible(), true);
+    assert.equal(lastRequest('syrup').grain, 'hour');
+    assert.equal(await page.locator('[data-history-body] tr').count(), 5);
+    assert.match(await page.locator('#sales-history-title').innerText(), /Hourly sales comparison/);
+    const hourlyDownloadPromise = page.waitForEvent('download'); await page.locator('[data-export]').click();
+    const hourlyCsv = fs.readFileSync(await (await hourlyDownloadPromise).path(), 'utf8');
+    assert.match(hourlyCsv, /2026-09-24 00:00/); assert.match(hourlyCsv, /2026-09-24 04:00/); assert.doesNotMatch(hourlyCsv, /2026-09-24 05:00/);
+    if (process.env.ANALYTICS_REVIEW_DIR) {
+      fs.mkdirSync(process.env.ANALYTICS_REVIEW_DIR, { recursive: true });
+      for (const width of [1280, 390]) {
+        await page.setViewportSize({ width, height: 1000 });
+        await page.locator('.product-analytics-hero').screenshot({ path: path.join(process.env.ANALYTICS_REVIEW_DIR, `hourly-chart-${width}.png`) });
+      }
+      await page.setViewportSize({ width: 1280, height: 1000 });
+    }
     await page.locator('[data-compare-product]').selectOption('empty'); await ready();
     assert.match(await page.locator('[data-comparison]').innerText(), /No sales in this period/);
     assert.doesNotMatch(await page.locator('[data-comparison]').innerText(), /Infinity|NaN/);
@@ -155,7 +203,7 @@ const server = http.createServer((req, res) => {
     assert.equal(await page.locator('[data-compare-product]').isDisabled(), false);
     for (const dimension of ['product', 'flavor', 'volume', 'sku']) {
       await page.goto(`${base}/dashboard/product-analytics/?product=drops-4x&dimension=${dimension}&flavor=vanilla&volume=10-ml&scope=today`); await ready();
-      assert.equal(lastRequest().dimension, dimension); assert.equal(lastRequest().start_date, '2026-09-24');
+      assert.equal(lastRequest().dimension, dimension); assert.equal(lastRequest().start_date, '2026-09-24'); assert.equal(lastRequest().grain, 'hour');
     }
     await page.goto(`${base}/dashboard/product-analytics/?product=empty&scope=today&compare=syrup`); await ready();
     assert.equal(await page.locator('[data-comparison]').isVisible(), true); assert.equal(await page.locator('[data-empty]').isVisible(), false);

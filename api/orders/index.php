@@ -98,7 +98,7 @@ function jg_orders_handle_request(): void
             $pdo = analyticsDb();
             jg_orders_ensure_mirror_schema($pdo);
             $product = jg_orders_breakdown_product($_GET['product'] ?? '');
-            $grain = jg_orders_breakdown_grain($_GET['grain'] ?? 'month');
+            $grain = jg_orders_analytics_grain($_GET['grain'] ?? 'month');
             $selection = [
                 'dimension' => jg_orders_analytics_dimension($_GET['dimension'] ?? 'product'),
                 'flavor' => jg_orders_breakdown_slug($_GET['flavor'] ?? ''),
@@ -1752,6 +1752,15 @@ function jg_orders_breakdown_grain(mixed $value): string
     return $grain;
 }
 
+function jg_orders_analytics_grain(mixed $value): string
+{
+    $grain = strtolower(trim((string) $value));
+    if (!in_array($grain, ['hour', 'day', 'week', 'month'], true)) {
+        throw new InvalidArgumentException('Grain must be hour, day, week, or month.');
+    }
+    return $grain;
+}
+
 /**
  * Build the product explorer from the SKU database so every analytics link uses
  * the same product, flavor, and volume keys as the order breakdown endpoints.
@@ -1883,6 +1892,14 @@ function jg_orders_breakdown_sku_matches_product(array $sku, string $product): b
 function jg_orders_breakdown_period(DateTimeImmutable $date, string $grain): array
 {
     $local = $date->setTimezone(new DateTimeZone('Asia/Jakarta'));
+    if ($grain === 'hour') {
+        return [
+            'key' => $local->format('Y-m-d\TH:00'),
+            'label' => $local->format('j M Y · H:00') . '–' . $local->modify('+1 hour')->format('H:00'),
+            'start_date' => $local->format('Y-m-d'),
+            'start_at' => $local->format('Y-m-d\TH:00:00P'),
+        ];
+    }
     if ($grain === 'day') {
         return [
             'key' => $local->format('Y-m-d'),
@@ -2132,17 +2149,22 @@ function jg_orders_breakdown_volume_label(array $sku): string
 /**
  * @return array<int, array<string, mixed>>
  */
-function jg_orders_analytics_period_scaffold(string $startDate, string $endDate, string $grain): array
+function jg_orders_analytics_period_scaffold(string $startDate, string $endDate, string $grain, ?DateTimeImmutable $asOf = null): array
 {
     $timezone = new DateTimeZone('Asia/Jakarta');
     $cursor = new DateTimeImmutable($startDate . ' 00:00:00', $timezone);
     $end = new DateTimeImmutable($endDate . ' 23:59:59', $timezone);
+    if ($grain === 'hour') {
+        $asOf ??= new DateTimeImmutable('now', $timezone);
+        if ($asOf < $end) $end = $asOf;
+    }
     if ($grain === 'week') {
         $cursor = $cursor->modify('monday this week');
     } elseif ($grain === 'month') {
         $cursor = $cursor->modify('first day of this month');
     }
     $step = match ($grain) {
+        'hour' => '+1 hour',
         'day' => '+1 day',
         'week' => '+1 week',
         default => '+1 month',
@@ -2255,9 +2277,11 @@ function jg_orders_aggregate_product_analytics_rows(
     string $grain,
     string $startDate,
     string $endDate,
-    array $selection
+    array $selection,
+    ?DateTimeImmutable $asOf = null
 ): array {
-    $periods = jg_orders_analytics_period_scaffold($startDate, $endDate, $grain);
+    $asOf ??= new DateTimeImmutable('now', new DateTimeZone('Asia/Jakarta'));
+    $periods = jg_orders_analytics_period_scaffold($startDate, $endDate, $grain, $asOf);
     $flavors = [];
     $volumes = [];
     $platforms = [];
@@ -2297,6 +2321,9 @@ function jg_orders_aggregate_product_analytics_rows(
         }
         $date = jg_orders_order_datetime($row['order_create_time'] ?? $row['timestamp'] ?? null);
         if (!$date) {
+            continue;
+        }
+        if ($grain === 'hour' && $date > $asOf) {
             continue;
         }
         $row = jg_orders_interpret_sales_row($row);
@@ -2438,6 +2465,8 @@ function jg_orders_product_analytics_payload(
     array $selection
 ): array {
     [$from, $to] = jg_orders_range_bounds($startDate, $endDate);
+    // Keep separate hours before PHP aggregates them; daily grouping loses the original sale times.
+    $periodFormat = $grain === 'hour' ? '%Y-%m-%d %H:00' : '%Y-%m-%d';
     $stmt = $pdo->prepare(
         'SELECT CASE WHEN sku <> "" THEN sku ELSE item_key END AS sku,
                 "" AS item_key,
@@ -2453,7 +2482,7 @@ function jg_orders_product_analytics_payload(
            AND order_create_time >= :from_date
            AND order_create_time < :to_date
          GROUP BY CASE WHEN sku <> "" THEN sku ELSE item_key END,
-                  DATE_FORMAT(DATE_ADD(order_create_time, INTERVAL 7 HOUR), "%Y-%m-%d"),
+                  DATE_FORMAT(DATE_ADD(order_create_time, INTERVAL 7 HOUR), "' . $periodFormat . '"),
                   platform, account_key
          ORDER BY order_create_time ASC'
     );

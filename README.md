@@ -42,8 +42,10 @@ Private admin dashboard for `admin.jenanggemi.com` behind a public Launch Pad.
 ## Product analytics
 
 Product analytics and flavor/volume sheets offer Today, This month, This year,
-All time, and Custom history. Today and This month use Jakarta calendar dates
-and daily sales; other analytics ranges retain monthly history.
+All time, and Custom history. Today uses hourly sales on analytics pages, from
+midnight through the current hour in Jakarta time. This month uses daily sales;
+other analytics ranges retain monthly history. Flavor/volume sheets retain their
+day, week, and month grouping controls.
 
 On any product analytics page, choose a comparison product and optionally its
 flavor and size. Both selections use the same dates for units, seller revenue,
