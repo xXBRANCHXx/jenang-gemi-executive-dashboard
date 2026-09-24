@@ -73,6 +73,10 @@
   const grainLabel = () => ({ day: 'day', week: 'week', month: 'month' }[state.grain] || state.grain);
   const analyticsHref = (dimension, flavor = '', volume = '') => {
     const params = new URLSearchParams({ product: state.product, dimension });
+    params.set('scope', state.scope);
+    params.set('start_date', state.startDate);
+    params.set('end_date', state.endDate);
+    params.set('metric', state.metric);
     if (flavor) params.set('flavor', flavor);
     if (volume) params.set('volume', volume);
     return `../product-analytics/?${params.toString()}`;
@@ -309,9 +313,12 @@
         refs.startDate.focus();
         return;
       }
-      if (state.scope === 'year') {
-        state.startDate = `${currentYear}-01-01`;
-        state.endDate = currentDate;
+      if (['today', 'month', 'year'].includes(state.scope)) {
+        const current = isoDate(new Date());
+        state.startDate = state.scope === 'today' ? current : state.scope === 'month' ? `${current.slice(0, 7)}-01` : `${current.slice(0, 4)}-01-01`;
+        state.endDate = current;
+        state.grain = state.scope === 'year' ? 'month' : 'day';
+        setActiveButton(refs.grainButtons, 'grain', state.grain);
       }
       await loadBreakdown();
     });

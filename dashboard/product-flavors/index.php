@@ -64,6 +64,8 @@ $jsVersion = $buildVersion . '-' . (string) @filemtime(__DIR__ . '/product-flavo
             <div class="product-flavor-control-group">
                 <span class="product-flavor-control-label">Period</span>
                 <div class="product-flavor-segment" data-scope-controls>
+                    <button type="button" data-scope="today">Today</button>
+                    <button type="button" data-scope="month">This month</button>
                     <button type="button" class="is-active" data-scope="year">This year</button>
                     <button type="button" data-scope="all">All time</button>
                     <button type="button" data-scope="custom">Custom</button>

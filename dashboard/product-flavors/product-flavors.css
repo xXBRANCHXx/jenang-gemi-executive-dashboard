@@ -152,6 +152,7 @@ html {
 }
 
 .product-flavor-segment {
+  flex-wrap: wrap;
   display: inline-flex;
   gap: 2px;
   padding: 3px;
@@ -589,6 +590,7 @@ html {
   .product-flavor-control-group {
     min-width: calc(50% - 5px);
   }
+  .product-flavor-control-group:has([data-scope-controls]) { width: 100%; }
 
   .product-flavor-control-group .product-flavor-segment {
     display: flex;

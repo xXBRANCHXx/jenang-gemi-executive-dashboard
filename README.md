@@ -39,6 +39,24 @@ Private admin dashboard for `admin.jenanggemi.com` behind a public Launch Pad.
 - `/api/hard-set/`
 - `/api/marketplace-auth/` (authenticated Shopee status and renewal handoff)
 
+## Product analytics
+
+Product analytics and flavor/volume sheets offer Today, This month, This year,
+All time, and Custom history. Today and This month use Jakarta calendar dates
+and daily sales; other analytics ranges retain monthly history.
+
+On any product analytics page, choose a comparison product and optionally its
+flavor and size. Both selections use the same dates for units, seller revenue,
+revenue per unit, the chart, and the comparison table. The chart compares recorded
+sales, and Export includes both selections. Filters are preserved in the URL.
+
+Validation: `php tests/product-analytics-periods-test.php`,
+`node tests/product-analytics-ui-test.js`, and
+`node tests/product-analytics-browser.cjs`. The browser test renders the actual
+PHP pages locally with fixture sales, and requires PHP and Playwright. Set
+`PHP_BINARY`, `PLAYWRIGHT_MODULE`, or `CHROMIUM_PATH` for local installations;
+`ANALYTICS_REVIEW_DIR` optionally saves screenshots.
+
 ## ZERO website catalog
 
 Website → ZERO → Website catalog groups each flavor and all its sizes. Add flavor / size

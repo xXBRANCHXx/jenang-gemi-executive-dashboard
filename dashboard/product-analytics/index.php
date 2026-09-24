@@ -76,6 +76,8 @@ $jsVersion = $buildVersion . '-' . (string) @filemtime(__DIR__ . '/product-analy
             <div class="product-analytics-control">
                 <span>History</span>
                 <div class="product-analytics-segment" data-scope-controls>
+                    <button type="button" data-scope="today">Today</button>
+                    <button type="button" data-scope="month">This month</button>
                     <button type="button" data-scope="year">This year</button>
                     <button type="button" class="is-active" data-scope="all">All time</button>
                     <button type="button" data-scope="custom">Custom</button>
@@ -96,13 +98,29 @@ $jsVersion = $buildVersion . '-' . (string) @filemtime(__DIR__ . '/product-analy
             </div>
         </section>
 
+        <section class="product-analytics-compare" aria-labelledby="compare-title">
+            <div class="product-analytics-section-heading">
+                <div><span>Side by side</span><h2 id="compare-title">Compare products</h2></div>
+                <button type="button" class="product-analytics-export" data-compare-clear hidden>Clear comparison</button>
+            </div>
+            <p class="product-analytics-compare-context">Compare <strong data-compare-primary><?php echo htmlspecialchars($productLabel, ENT_QUOTES); ?></strong> with another product, flavor, or size over the same dates.</p>
+            <div class="product-analytics-compare-fields">
+                <label>Product<select data-compare-product disabled><option value="">Loading products…</option></select></label>
+                <label>Flavor<select data-compare-flavor disabled><option value="">All flavors</option></select></label>
+                <label>Size<select data-compare-volume disabled><option value="">All sizes</option></select></label>
+            </div>
+            <p class="product-analytics-compare-message" data-compare-message aria-live="polite"></p>
+            <button type="button" class="product-analytics-export" data-compare-retry hidden>Retry</button>
+        </section>
+
         <div class="product-analytics-content" data-content hidden>
             <section class="product-analytics-kpis" aria-label="Performance summary" data-kpis></section>
+            <section class="product-analytics-comparison" aria-label="Product comparison" data-comparison hidden></section>
 
             <section class="product-analytics-hero" aria-labelledby="sales-history-title">
                 <div class="product-analytics-section-heading">
-                    <div><span>Actual + run rate</span><h2 id="sales-history-title">Monthly sales pace</h2></div>
-                    <div class="product-analytics-chart-legend" aria-label="Chart legend"><span class="is-actual"><i></i>Actual to date</span><span class="is-forecast"><i></i>Projected month-end</span></div>
+                    <div><span data-chart-eyebrow>Actual + run rate</span><h2 id="sales-history-title">Monthly sales pace</h2></div>
+                    <div class="product-analytics-chart-legend" data-chart-legend aria-label="Chart legend"><span class="is-actual"><i></i>Actual to date</span><span class="is-forecast"><i></i>Projected month-end</span></div>
                 </div>
                 <div class="product-analytics-chart-wrap">
                     <canvas data-history-chart role="img" aria-label="Monthly actual and predicted sales chart"></canvas>
@@ -111,6 +129,7 @@ $jsVersion = $buildVersion . '-' . (string) @filemtime(__DIR__ . '/product-analy
                 <p class="product-analytics-method" data-forecast-method></p>
             </section>
 
+            <p class="product-analytics-mix-context" data-mix-context hidden></p>
             <section class="product-analytics-grid" aria-label="Sales mix breakdowns">
                 <article class="product-analytics-panel">
                     <div class="product-analytics-section-heading"><div><span>Product mix</span><h2>Flavor breakdown</h2></div></div>
@@ -137,11 +156,11 @@ $jsVersion = $buildVersion . '-' . (string) @filemtime(__DIR__ . '/product-analy
             <section class="product-analytics-history" aria-labelledby="monthly-change-title">
                 <div class="product-analytics-section-heading">
                     <div><span>Every period</span><h2 id="monthly-change-title">Monthly increase &amp; decrease</h2></div>
-                    <p>The current month projection is separated from recorded sales.</p>
+                    <p data-history-note>The current month projection is separated from recorded sales.</p>
                 </div>
                 <div class="product-analytics-table-scroll">
                     <table>
-                        <thead><tr><th>Month</th><th>Units</th><th>Unit change</th><th>Revenue</th><th>Revenue change</th><th>Status</th></tr></thead>
+                        <thead data-history-head><tr><th>Month</th><th>Units</th><th>Unit change</th><th>Revenue</th><th>Revenue change</th><th>Status</th></tr></thead>
                         <tbody data-history-body></tbody>
                     </table>
                 </div>
