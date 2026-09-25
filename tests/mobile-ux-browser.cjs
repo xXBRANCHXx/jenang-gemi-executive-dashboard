@@ -20,6 +20,15 @@ function layoutIssues() {
   const nodes = [...document.querySelectorAll('main *, .admin-shell-main *')].filter(shown);
   const mobile = matchMedia('(max-width: 1024px)').matches;
   const issues = [];
+  const rail=document.querySelector('.ed-nav');
+  if (rail && innerWidth>=768) {
+    const bounds=rail.getBoundingClientRect();
+    if (!rail.checkVisibility({visibilityProperty:true}) || rail.inert || Math.abs(bounds.x)>1) issues.push('Tablet sidebar is unavailable');
+    const host=document.querySelector('.admin-shell-main') || document.querySelector('body.ed-standalone > main');
+    if (host && host.getBoundingClientRect().left<bounds.right-1) issues.push('Content overlaps the tablet sidebar');
+    if (document.querySelector('.admin-mobile-tabbar')?.checkVisibility({visibilityProperty:true})) issues.push('Phone tabs appear beside tablet sidebar');
+    if (document.querySelector('.ed-mobile-toggle')?.checkVisibility({visibilityProperty:true})) issues.push('Phone menu toggle appears beside tablet sidebar');
+  }
   for (const e of nodes) {
     const r=e.getBoundingClientRect();
     if (!r.width || !r.height || getComputedStyle(e).position==='fixed') continue;
@@ -41,7 +50,7 @@ function layoutIssues() {
     await page.route('**/*',route=>route.request().url().startsWith(base)?route.continue():route.abort());
     const errors=[]; page.on('pageerror',error=>errors.push(error.message));
     const report=[];
-    const sizes=[{width:320,height:568},{width:390,height:844},{width:768,height:1024},{width:844,height:390},{width:1280,height:900}];
+    const sizes=[{width:320,height:568},{width:390,height:844},{width:768,height:1024},{width:844,height:390},{width:941,height:1024},{width:1024,height:768},{width:1280,height:900}];
     for (const route of routes) {
       if (process.env.MOBILE_PAGES && !process.env.MOBILE_PAGES.split(',').includes(route.id)) continue;
       errors.length=0;
@@ -53,10 +62,10 @@ function layoutIssues() {
         await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
         const issues=await page.evaluate(layoutIssues);
         checks.push({size,issues});
-        if (output && size.width===390) {
+        if (output && (size.width===390 || size.width===941)) {
           for (const theme of ['dark','light']) {
             await page.evaluate(theme=>document.documentElement.dataset.adminTheme=theme,theme);
-            await page.screenshot({path:path.join(output,`${route.id}-${theme}.png`),fullPage:true});
+            await page.screenshot({path:path.join(output,`${route.id}-${size.width}-${theme}.png`),fullPage:true});
           }
           await page.evaluate(()=>document.documentElement.dataset.adminTheme='dark');
         }
@@ -91,11 +100,10 @@ function layoutIssues() {
     await page.keyboard.press('Escape');
 
     await page.setViewportSize({width:844,height:390});
-    await page.locator('.ed-mobile-toggle').tap();
-    assert.equal(await page.locator('.ed-nav').evaluate(e=>e.inert),false,'Landscape uses the mobile menu');
+    assert.equal(await page.locator('.ed-nav').evaluate(e=>e.inert),false,'Tablet sidebar stays interactive');
+    assert.equal(await page.locator('.ed-mobile-toggle').isVisible(),false,'Tablet does not need a menu toggle');
     await page.locator('.ed-areas [data-ed-area="settings"]').scrollIntoViewIfNeeded();
     assert(await page.locator('.ed-areas [data-ed-area="settings"]').evaluate(e=>{const r=e.getBoundingClientRect();return e.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));}),'All business areas remain reachable in landscape');
-    await page.locator('.ed-mobile-toggle').tap();
     await page.setViewportSize({width:320,height:568});
 
     // A real, populated filter drawer retains reachable actions on the smallest phone.
@@ -122,6 +130,14 @@ function layoutIssues() {
     await canvas.scrollIntoViewIfNeeded();
     await canvas.tap({position:{x:64,y:120}});
     assert(await page.locator('[data-chart-tooltip]').isVisible(),'Chart values work on touch');
+    for (const size of sizes.filter(size=>size.width>=768 && size.width<=1024)) {
+      await page.setViewportSize(size);
+      const buttons=await page.locator('[data-scope-controls] button').evaluateAll(elements=>elements.map(e=>({top:e.getBoundingClientRect().top,right:e.getBoundingClientRect().right})));
+      assert(buttons.every(button=>Math.abs(button.top-buttons[0].top)<1 && button.right<=size.width),`History toggles stay in one row at ${size.width}px`);
+    }
+    await page.locator('[data-scope="all"]').tap();
+    assert(await page.locator('[data-scope="all"]').evaluate(e=>e.classList.contains('is-active')),'Tablet history toggle remains functional');
+    await page.setViewportSize({width:320,height:568});
 
     // Read-only settings tabs and new draft editor expose their full mobile forms.
     await page.goto(base+'/profit-loss/');
@@ -167,6 +183,6 @@ function layoutIssues() {
     if (output) fs.writeFileSync(path.join(output,'mobile-audit.json'),JSON.stringify(report,null,2));
     const failures=report.flatMap(row=>[...row.errors.map(error=>`${row.page}: ${error}`),...row.checks.flatMap(check=>check.issues.map(issue=>`${row.page} ${check.size.width}: ${issue}`))]);
     assert.deepEqual(failures,[]);
-    console.log(`PASS: ${destinationCount} page destinations and login states, five viewport sizes, menu, filters, table scrolling, touch chart, accounting settings, direct-order cart and blog editor.`);
+    console.log(`PASS: ${destinationCount} page destinations and login states, seven viewport sizes, tablet sidebar/toggles, phone menu, filters, table scrolling, touch chart, accounting settings, direct-order cart and blog editor.`);
   } finally {await browser.close();server.close();}
 })().catch(error=>{console.error(error);process.exitCode=1;});

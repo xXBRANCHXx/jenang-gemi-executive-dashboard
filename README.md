@@ -41,9 +41,11 @@ Private admin dashboard for `admin.jenanggemi.com` behind a public Launch Pad.
 
 ## Mobile layouts
 
-The shared navigation includes `mobile.css` and `mobile.js` for phones and tablets
-up to 1024px. The menu overlays page headers, keeps background controls inactive,
-and restores focus when closed. Forms use touch-sized controls; dialogs scroll
+The shared navigation includes `mobile.css` and `mobile.js` for touch and layout
+fixes up to 1024px. Phones below 768px use a drawer menu that overlays page headers,
+keeps background controls inactive, and restores focus when closed. Tablets from
+768px retain the desktop sidebar and horizontal segmented controls, with no phone
+tab bar or floating menu button. Forms use touch-sized controls; dialogs scroll
 inside the viewport. Wide reports retain horizontal scrolling with a visible
 swipe hint. Product history chart values also respond to touch.
 
@@ -54,7 +56,7 @@ saves dark/light screenshots and JSON reports; `MOBILE_PAGES` limits page checks
 to comma-separated navigation IDs during development.
 
 The page suite renders all 45 navigation destinations, the Launch Pad, and two
-login states at 320, 390, 768, 844, and 1280px. It checks overflow, touch controls,
+login states at 320, 390, 768, 844, 941, 1024, and 1280px. It checks overflow, touch controls,
 input sizing, zoom, menu/search focus, filters, table scrolling, chart interaction,
 accounting settings, a populated direct-order cart and walk-in channel switch,
 and the blog editor. The dialog suite checks 32 native form

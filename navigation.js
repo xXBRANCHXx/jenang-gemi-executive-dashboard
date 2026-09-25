@@ -80,7 +80,7 @@ if (rail) {
     });
     breadcrumb.replaceChildren();
     const area = document.createElement('button'); area.type = 'button'; area.textContent = areaTitle(current.area);
-    area.addEventListener('click', () => { showArea(current.area); if (matchMedia('(max-width: 1024px)').matches) document.querySelector('[data-admin-rail-toggle]')?.click(); });
+    area.addEventListener('click', () => { showArea(current.area); if (matchMedia('(max-width: 767px)').matches) document.querySelector('[data-admin-rail-toggle]')?.click(); });
     breadcrumb.append(area);
     if (current.parent) { const sep = document.createElement('span'); sep.textContent = '/'; breadcrumb.append(sep, link(parent.title, parent.href)); }
     const slash = document.createElement('span'); slash.textContent = '/';
@@ -140,7 +140,7 @@ if (rail) {
   const toggle = document.querySelector('[data-admin-rail-toggle]');
   const moreButton = document.querySelector('[data-mobile-nav-more]');
   const tabbar = document.querySelector('.admin-mobile-tabbar');
-  const mobileQuery = matchMedia('(max-width: 1024px)');
+  const mobileQuery = matchMedia('(max-width: 767px)');
   let wasMobileOpen = false;
   let hostWasInert = false;
   const syncMobile = () => {
