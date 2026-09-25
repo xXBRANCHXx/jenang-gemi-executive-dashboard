@@ -315,3 +315,31 @@ body:has(#admin-rail-nav.ed-nav) .admin-billing-notification-row{flex:0 0 auto!i
 body:has(#admin-rail-nav.ed-nav) .admin-billing-notification-main{height:auto!important;min-height:88px;padding:16px!important;align-items:start!important;gap:12px!important}
 body:has(#admin-rail-nav.ed-nav) .admin-billing-notification-copy{gap:7px!important;white-space:normal;overflow-wrap:anywhere}
 body:has(#admin-rail-nav.ed-nav) .admin-billing-notification-copy strong{overflow:visible!important;text-overflow:clip!important;white-space:normal!important}
+
+/* Grid tracks must shrink to the content area left by the shared navigation. */
+body:has(#admin-rail-nav.ed-nav) .admin-view { min-width:0; grid-template-columns:minmax(0,1fr); }
+body:has(#admin-rail-nav.ed-nav) .admin-view > * { min-width:0; }
+body:has(#admin-rail-nav.ed-nav) .admin-inventory-recap-controls { flex-wrap:wrap; gap:16px; }
+body:has(#admin-rail-nav.ed-nav) .admin-inventory-product-search { min-width:0; max-width:100%; }
+body:has(#admin-rail-nav.ed-nav) .admin-website-selection-card { min-width:0; overflow-wrap:anywhere; }
+body:has(#admin-rail-nav.ed-nav) .admin-website-selection-card > * { min-width:0; max-width:100%; }
+body:has(#admin-rail-nav.ed-nav) :is(.whatsapp-order-builder,.whatsapp-order-form,.whatsapp-order-history) { min-width:0; grid-template-columns:minmax(0,1fr); }
+body:has(#admin-rail-nav.ed-nav) :is(.whatsapp-order-builder,.whatsapp-order-form) > * { min-width:0; max-width:100%; }
+body:has(#admin-rail-nav.ed-nav) .whatsapp-order-submit-panel { flex-wrap:wrap; }
+body:has(#admin-rail-nav.ed-nav) .whatsapp-payment-controls { flex-wrap:wrap; }
+body:has(#admin-rail-nav.ed-nav) .whatsapp-order-form.is-walk-in .whatsapp-fulfillment-grid { grid-template-columns:minmax(0,1fr); }
+body:has(#admin-rail-nav.ed-nav) .partner-sales-chart:has(> .partner-sales-empty) { grid-template-columns:minmax(0,1fr); place-items:center; }
+@media(max-width:1400px) and (min-width:1025px) {
+  body:has(#admin-rail-nav.ed-nav) .admin-inventory-product-search { grid-template-columns:minmax(160px,1.5fr) repeat(4,minmax(0,1fr)); width:100%; }
+  body:has(#admin-rail-nav.ed-nav) .admin-ad-view-toolbar { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  body:has(#admin-rail-nav.ed-nav) .admin-ad-view-toolbar-actions { grid-column:1 / -1; flex-wrap:wrap; }
+  body:has(#admin-rail-nav.ed-nav) .pnl-v2-bottom-grid { grid-template-columns:220px minmax(0,1fr); }
+  body:has(#admin-rail-nav.ed-nav) .pnl-v2-totals { grid-column:1 / -1; grid-template-columns:repeat(3,minmax(0,1fr)); }
+  body:has(#admin-rail-nav.ed-nav) .admin-settings-grid-minimal { grid-template-columns:minmax(0,1fr) 44px; }
+  body:has(#admin-rail-nav.ed-nav) .admin-settings-lock-zone { grid-column:2; }
+  body:has(#admin-rail-nav.ed-nav) .admin-regional-card { grid-column:1 / -1; grid-row:auto; }
+  body:has(#admin-rail-nav.ed-nav) .blog-workbench { grid-template-columns:235px minmax(0,1fr); height:auto; overflow:visible; }
+  body:has(#admin-rail-nav.ed-nav) .blog-inspector { grid-column:1 / -1; border-left:0; border-top:1px solid var(--ui-border); }
+  body:has(#admin-rail-nav.ed-nav) .blog-inspector-panel.is-active { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  body:has(#admin-rail-nav.ed-nav) .whatsapp-fulfillment-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}

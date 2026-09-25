@@ -1,6 +1,8 @@
 // Navigation only: existing page controllers own data loading and all mutations.
 const rail = document.querySelector('[data-ed-current]');
 if (rail) {
+  // Fixed navigation must share the app bars' stacking context, outside page shells.
+  document.body.prepend(...[rail, document.querySelector('[data-admin-rail-toggle]'), document.querySelector('[data-admin-rail-backdrop]')].filter(Boolean));
   const map = JSON.parse(document.getElementById('ed-navigation-map').textContent);
   const pages = new Map(map.pages.map(page => [page.id, page]));
   const dialog = document.querySelector('[data-ed-search]');
@@ -78,7 +80,7 @@ if (rail) {
     });
     breadcrumb.replaceChildren();
     const area = document.createElement('button'); area.type = 'button'; area.textContent = areaTitle(current.area);
-    area.addEventListener('click', () => { showArea(current.area); if (matchMedia('(max-width: 820px)').matches) document.querySelector('[data-admin-rail-toggle]')?.click(); });
+    area.addEventListener('click', () => { showArea(current.area); if (matchMedia('(max-width: 1024px)').matches) document.querySelector('[data-admin-rail-toggle]')?.click(); });
     breadcrumb.append(area);
     if (current.parent) { const sep = document.createElement('span'); sep.textContent = '/'; breadcrumb.append(sep, link(parent.title, parent.href)); }
     const slash = document.createElement('span'); slash.textContent = '/';
@@ -136,14 +138,27 @@ if (rail) {
   }
   syncAlerts();
   const toggle = document.querySelector('[data-admin-rail-toggle]');
-  const mobileQuery = matchMedia('(max-width: 820px)');
+  const moreButton = document.querySelector('[data-mobile-nav-more]');
+  const tabbar = document.querySelector('.admin-mobile-tabbar');
+  const mobileQuery = matchMedia('(max-width: 1024px)');
   let wasMobileOpen = false;
+  let hostWasInert = false;
   const syncMobile = () => {
     const open = mobileQuery.matches && document.body.classList.contains('admin-rail-open');
     const focusWasInside = rail.contains(document.activeElement);
     rail.inert = mobileQuery.matches && !open;
-    if (open && !wasMobileOpen) rail.querySelector('.ed-brand')?.focus();
-    if (!open && wasMobileOpen && focusWasInside) toggle?.focus();
+    moreButton?.setAttribute('aria-expanded', String(open));
+    if (open && !wasMobileOpen) {
+      hostWasInert = host?.inert || false;
+      if (host) host.inert = true;
+      if (tabbar) tabbar.inert = true;
+      rail.querySelector('.ed-brand')?.focus();
+    }
+    if (!open && wasMobileOpen) {
+      if (host) host.inert = hostWasInert;
+      if (tabbar) tabbar.inert = false;
+      if (mobileQuery.matches && (focusWasInside || document.activeElement === toggle)) (moreButton?.getClientRects().length ? moreButton : toggle)?.focus();
+    }
     wasMobileOpen = open;
   };
   document.addEventListener('keydown', event => {
@@ -156,5 +171,5 @@ if (rail) {
   });
   new MutationObserver(syncMobile).observe(document.body,{attributes:true,attributeFilter:['class']});
   mobileQuery.addEventListener('change',syncMobile); syncMobile();
-  dialog.addEventListener('close', () => { if (mobileQuery.matches && rail.inert) toggle?.focus(); });
+  dialog.addEventListener('close', () => { if (mobileQuery.matches && rail.inert) (moreButton?.getClientRects().length ? moreButton : toggle)?.focus(); });
 }

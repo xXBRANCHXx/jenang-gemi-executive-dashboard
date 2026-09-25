@@ -634,11 +634,11 @@
     if (window.history.length <= 1 || !document.referrer.startsWith(window.location.origin)) return;
     event.preventDefault(); window.history.back();
   });
-  refs.canvas.addEventListener('mousemove', (event) => {
+  const showChartTooltip = (event) => {
     const bounds = refs.canvas.getBoundingClientRect();
     const mouseX = event.clientX - bounds.left;
     const mouseY = event.clientY - bounds.top;
-    const distance = (point) => Math.hypot(point.x - mouseX, point.y - mouseY);
+    const distance = (point) => event.pointerType === 'touch' ? Math.abs(point.x - mouseX) : Math.hypot(point.x - mouseX, point.y - mouseY);
     const nearest = state.chartPoints.reduce((best, point) => !best || distance(point) < distance(best) ? point : best, null);
     if (!nearest || distance(nearest) > 32) { refs.tooltip.hidden = true; return; }
     const points = state.comparison ? state.chartPoints.filter((point) => point.row.key === nearest.row.key) : [nearest];
@@ -647,8 +647,12 @@
     const left = Math.max(8, Math.min(bounds.width - refs.tooltip.offsetWidth - 8, nearest.x + 12));
     const top = Math.max(8, nearest.y - refs.tooltip.offsetHeight - 12);
     refs.tooltip.style.left = `${left}px`; refs.tooltip.style.top = `${top}px`;
-  });
-  refs.canvas.addEventListener('mouseleave', () => { refs.tooltip.hidden = true; });
+  };
+  refs.canvas.addEventListener('pointermove', showChartTooltip);
+  refs.canvas.addEventListener('pointerdown', showChartTooltip);
+  refs.canvas.addEventListener('pointerleave', (event) => { if (event.pointerType !== 'touch') refs.tooltip.hidden = true; });
+  refs.canvas.addEventListener('pointercancel', () => { refs.tooltip.hidden = true; });
+  document.addEventListener('pointerdown', (event) => { if (event.target !== refs.canvas) refs.tooltip.hidden = true; });
   let resizeFrame = 0;
   window.addEventListener('resize', () => { window.cancelAnimationFrame(resizeFrame); resizeFrame = window.requestAnimationFrame(drawChart); });
 

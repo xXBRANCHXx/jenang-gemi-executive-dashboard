@@ -20,7 +20,7 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
 <html lang="id" data-admin-theme="dark">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title>Partner Profile | Jenang Gemi Executive Dashboard</title>
     <meta name="robots" content="noindex,nofollow">
 <?php render_admin_initial_theme_script(); ?>
@@ -139,7 +139,7 @@ $adminJsVersion = (string) @filemtime(dirname(__DIR__) . '/partner-admin.js');
                                                 <input type="text" name="portal_password" maxlength="160" placeholder="Unlock Branch-tier access" autocomplete="new-password" data-branch-protected-control disabled>
                                                 <button type="button" class="partner-profile-icon-btn" data-generate-portal-password data-branch-protected-control aria-label="Generate portal password" disabled>Key</button>
                                                 <button type="button" class="partner-profile-branch-unlock" data-unlock-branch-tier aria-label="Unlock Branch-tier password controls" title="Unlock Branch-tier password controls">
-                                                    <img src="https://cdn.jsdelivr.net/npm/lucide-static@0.468.0/icons/lock-keyhole.svg" alt="" width="18" height="18" loading="lazy" referrerpolicy="no-referrer">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4m-5 4v2"/><circle cx="12" cy="15" r="1"/></svg>
                                                 </button>
                                             </div>
                                             <button type="button" class="admin-ghost-btn" data-create-password-reset-key data-branch-protected-control disabled>Create one-time reset key</button>

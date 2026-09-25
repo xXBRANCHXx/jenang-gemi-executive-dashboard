@@ -16,7 +16,7 @@ $pageJsVersion = (string) @filemtime(dirname(__DIR__) . '/whatsapp-orders.js');
 <html lang="id" data-admin-theme="dark">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title>Direct Orders | Jenang Gemi Executive Dashboard</title>
     <meta name="robots" content="noindex,nofollow">
 <?php render_admin_initial_theme_script(); ?>
@@ -86,7 +86,7 @@ $pageJsVersion = (string) @filemtime(dirname(__DIR__) . '/whatsapp-orders.js');
                                 </div>
                             </section>
 
-                            <section class="whatsapp-order-panel" data-fulfillment-panel>
+                            <section class="whatsapp-order-panel">
                                 <div class="whatsapp-order-panel-head">
                                     <div><span>Products</span><h3>Choose SKU quantities</h3></div>
                                     <label class="whatsapp-sku-search"><span>Search</span><input type="search" data-sku-search placeholder="SKU, product, flavor, tag"></label>
@@ -116,22 +116,22 @@ $pageJsVersion = (string) @filemtime(dirname(__DIR__) . '/whatsapp-orders.js');
 
                             <section class="whatsapp-order-panel">
                                 <div class="whatsapp-order-panel-head">
-                                    <div><span>Fulfillment</span><h3>Label, deadline, and metrics</h3></div>
-                                    <small>PDF · maximum 10 MB</small>
+                                    <div><span data-fulfillment-kicker>Fulfillment</span><h3 data-fulfillment-title>Label, deadline, and metrics</h3></div>
+                                    <small data-fulfillment-panel>PDF · maximum 10 MB</small>
                                 </div>
                                 <div class="whatsapp-fulfillment-grid">
-                                    <label class="whatsapp-label-drop" data-label-drop>
+                                    <label class="whatsapp-label-drop" data-label-drop data-fulfillment-panel>
                                         <input type="file" name="label" accept=".pdf,application/pdf" data-label-input required>
                                         <span class="whatsapp-label-icon" aria-hidden="true">PDF</span>
                                         <strong data-label-name>Choose shipping label</strong>
                                         <small>Required, following the Partner order flow</small>
                                     </label>
-                                    <label class="whatsapp-range-field">
+                                    <label class="whatsapp-range-field" data-fulfillment-panel>
                                         <span>Store Ops deadline <strong data-deadline-value>24h</strong></span>
                                         <input type="range" name="deadline_hours" min="12" max="48" value="24" data-deadline-input>
                                         <small>12 hours <i></i> 48 hours</small>
                                     </label>
-                                    <label class="whatsapp-money-field">
+                                    <label class="whatsapp-money-field" data-fulfillment-panel>
                                         <span>Shipping cost</span>
                                         <div><b>Rp</b><input type="number" name="shipping_cost" min="0" max="99999999999999" step="1" value="0" inputmode="numeric" required></div>
                                         <small>Saved for metrics and the customer invoice total</small>

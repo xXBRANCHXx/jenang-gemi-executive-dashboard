@@ -39,6 +39,29 @@ Private admin dashboard for `admin.jenanggemi.com` behind a public Launch Pad.
 - `/api/hard-set/`
 - `/api/marketplace-auth/` (authenticated Shopee status and renewal handoff)
 
+## Mobile layouts
+
+The shared navigation includes `mobile.css` and `mobile.js` for phones and tablets
+up to 1024px. The menu overlays page headers, keeps background controls inactive,
+and restores focus when closed. Forms use touch-sized controls; dialogs scroll
+inside the viewport. Wide reports retain horizontal scrolling with a visible
+swipe hint. Product history chart values also respond to touch.
+
+Run `node tests/mobile-ux-browser.cjs` and `node tests/mobile-dialogs-browser.cjs`
+with PHP and Playwright installed. `PHP_BINARY`, `PLAYWRIGHT_MODULE`, and
+`CHROMIUM_PATH` can point to local installations. `MOBILE_REVIEW_DIR` optionally
+saves dark/light screenshots and JSON reports; `MOBILE_PAGES` limits page checks
+to comma-separated navigation IDs during development.
+
+The page suite renders all 45 navigation destinations, the Launch Pad, and two
+login states at 320, 390, 768, 844, and 1280px. It checks overflow, touch controls,
+input sizing, zoom, menu/search focus, filters, table scrolling, chart interaction,
+accounting settings, a populated direct-order cart and walk-in channel switch,
+and the blog editor. The dialog suite checks 32 native form
+layouts in portrait and landscape. Both use a loopback-only fixture server with
+sample and empty/error states; transaction writes and external requests are
+disabled. They do not validate live credentials or complete real transactions.
+
 ## Product analytics
 
 Product analytics and flavor/volume sheets offer Today, This month, This year,

@@ -34,6 +34,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const builderDescription = root.querySelector('[data-builder-description]');
   const customerSectionTitle = root.querySelector('[data-customer-section-title]');
   const customerSectionNote = root.querySelector('[data-customer-section-note]');
+  const fulfillmentKicker = root.querySelector('[data-fulfillment-kicker]');
+  const fulfillmentTitle = root.querySelector('[data-fulfillment-title]');
   const payLaterInput = root.querySelector('[data-pay-later]');
   const paymentMethod = root.querySelector('[data-payment-method]');
 
@@ -144,6 +146,8 @@ document.addEventListener('DOMContentLoaded', () => {
       : 'Enter the customer, choose products, and upload the shipping label. Saved prices sync to Store Ops for customer invoice printing.';
     if (customerSectionTitle) customerSectionTitle.textContent = isWalkIn ? 'Customer profile' : 'Delivery details';
     if (customerSectionNote) customerSectionNote.textContent = isWalkIn ? 'Phone number links repeat visits across channels' : 'Only fulfillment details go to Store Ops';
+    if (fulfillmentKicker) fulfillmentKicker.textContent = isWalkIn ? 'Pricing' : 'Fulfillment';
+    if (fulfillmentTitle) fulfillmentTitle.textContent = isWalkIn ? 'Order discount' : 'Label, deadline, and metrics';
     renderTotals();
   };
 

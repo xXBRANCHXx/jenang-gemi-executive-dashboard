@@ -40,7 +40,8 @@ function render_executive_navigation(): void
     $version = max(filemtime(__DIR__ . '/navigation.css'), filemtime(__DIR__ . '/navigation.js'), filemtime(__DIR__ . '/navigation-map.json'));
     echo '<link rel="stylesheet" href="/navigation.css?v=' . $version . '">';
     echo '<link rel="stylesheet" href="/executive-ui.css?v=' . filemtime(__DIR__ . '/executive-ui.css') . '" media="screen">';
-    echo '<button type="button" class="admin-mobile-rail-toggle ed-mobile-toggle" data-admin-rail-toggle aria-controls="admin-rail-nav" aria-expanded="false" aria-label="Open navigation">' . ed_navigation_icon('menu') . '</button>';
+    echo '<link rel="stylesheet" href="/mobile.css?v=' . filemtime(__DIR__ . '/mobile.css') . '" media="screen">';
+    echo '<button type="button" class="admin-mobile-rail-toggle ed-mobile-toggle" data-admin-rail-toggle aria-controls="admin-rail-nav" aria-expanded="false" aria-label="Open navigation"><span class="ed-toggle-menu-icon">' . ed_navigation_icon('menu') . '</span><span class="ed-toggle-close-icon">' . ed_navigation_icon('close') . '</span></button>';
     echo '<div class="admin-mobile-rail-backdrop" data-admin-rail-backdrop hidden></div>';
     echo '<aside class="admin-rail ed-nav" id="admin-rail-nav" data-admin-rail data-ed-current="' . ed_navigation_escape($current) . '" aria-label="Executive Dashboard navigation">';
     echo '<a class="ed-brand" href="/dashboard/?view=overview">' . ed_navigation_icon('dashboard') . '<span>Executive Dashboard</span></a>';
@@ -70,6 +71,7 @@ function render_executive_navigation(): void
     echo '<dialog class="ed-search" data-ed-search aria-label="Find a dashboard page"><div class="ed-search-head">' . ed_navigation_icon('search') . '<input type="search" data-ed-search-input aria-label="Search pages" placeholder="Page name, report or task…"><button type="button" data-ed-search-close aria-label="Close page search">' . ed_navigation_icon('close') . '</button></div><div class="ed-search-results" data-ed-search-results></div><footer>↑ ↓ navigate · Enter opens · Esc closes</footer></dialog>';
     echo '<script type="application/json" id="ed-navigation-map">' . json_encode($map, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) . '</script>';
     echo '<script type="module" src="/navigation.js?v=' . $version . '"></script>';
+    echo '<script type="module" src="/mobile.js?v=' . filemtime(__DIR__ . '/mobile.js') . '"></script>';
     render_admin_mobile_sidebar_script();
     render_admin_unpaid_order_indicator_script();
 }

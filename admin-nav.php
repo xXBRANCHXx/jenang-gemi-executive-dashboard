@@ -637,7 +637,7 @@ function render_admin_mobile_sidebar_script(): void
         const backdrop = document.querySelector('[data-admin-rail-backdrop]');
         if (!toggle || !rail) return;
 
-        const mobileQuery = window.matchMedia ? window.matchMedia('(max-width: 820px)') : null;
+        const mobileQuery = window.matchMedia ? window.matchMedia('(max-width: 1024px)') : null;
         const isMobile = () => !mobileQuery || mobileQuery.matches;
         const setOpen = (open) => {
             const shouldOpen = Boolean(open && isMobile());
