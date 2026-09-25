@@ -319,13 +319,21 @@
     return `<span class="product-analytics-change ${tone}">${arrow} ${escapeHtml(detail)}</span>`;
   };
 
+  const comparisonCell = (value, otherValue, metric) => {
+    const higher = Number(value || 0) > Number(otherValue || 0);
+    const formatted = metric === 'revenue' ? currency(value) : integer(value);
+    const label = metric === 'revenue' ? 'Higher revenue' : 'Higher unit sales';
+    const marker = higher ? `<span class="product-analytics-winner-mark" role="img" aria-label="${label}" title="${label}">✓</span>` : '';
+    return `<td${higher ? ' class="is-comparison-winner"' : ''}>${marker}${escapeHtml(formatted)}</td>`;
+  };
+
   const renderHistory = () => {
     const period = ({ hour: 'Hour (WIB)', day: 'Day', month: 'Month' })[state.data.grain] || 'Month';
     if (state.comparison) {
       const first = escapeHtml(state.data.selection.title);
       const second = escapeHtml(state.comparison.selection.title);
       refs.historyHead.innerHTML = `<tr><th scope="col">${period}</th><th scope="col">${first} · units</th><th scope="col">${second} · units</th><th scope="col">${first} · revenue</th><th scope="col">${second} · revenue</th></tr>`;
-      refs.history.innerHTML = comparisonHistory().reverse().map(({ first, second }) => `<tr><td>${escapeHtml(first.label)}</td><td>${escapeHtml(integer(first.quantity))}</td><td>${escapeHtml(integer(second.quantity))}</td><td>${escapeHtml(currency(first.revenue))}</td><td>${escapeHtml(currency(second.revenue))}</td></tr>`).join('');
+      refs.history.innerHTML = comparisonHistory().reverse().map(({ first, second }) => `<tr><td>${escapeHtml(first.label)}</td>${comparisonCell(first.quantity, second.quantity, 'quantity')}${comparisonCell(second.quantity, first.quantity, 'quantity')}${comparisonCell(first.revenue, second.revenue, 'revenue')}${comparisonCell(second.revenue, first.revenue, 'revenue')}</tr>`).join('');
       return;
     }
     refs.historyHead.innerHTML = `<tr><th>${period}</th><th>Units</th><th>Unit change</th><th>Revenue</th><th>Revenue change</th><th>Status</th></tr>`;
@@ -462,6 +470,7 @@
     refs.chartEyebrow.textContent = comparing ? 'Same dates · recorded sales' : daily || hourly ? 'Recorded sales' : 'Actual + run rate';
     refs.historyTitle.textContent = comparing ? 'Sales side by side' : `${periodLabel} increase & decrease`;
     refs.historyNote.textContent = hourly ? 'Sales per hour in Jakarta time (WIB). The current hour is still in progress.' : comparing ? 'Both products use the same dates and sales channels.' : daily ? 'Recorded sales for each day in the selected range.' : 'The current month projection is separated from recorded sales.';
+    if (comparing) refs.historyNote.textContent += ' Green ✓ marks the higher units or revenue in each row. Ties stay neutral.';
     refs.legend.innerHTML = comparing
       ? `<span class="is-actual"><i></i>${escapeHtml(selection.title)}</span><span class="is-comparison"><i></i>${escapeHtml(state.comparison.selection.title)}</span>`
       : `<span class="is-actual"><i></i>Actual to date</span>${data.forecast?.length ? '<span class="is-forecast"><i></i>Projected month-end</span>' : ''}`;

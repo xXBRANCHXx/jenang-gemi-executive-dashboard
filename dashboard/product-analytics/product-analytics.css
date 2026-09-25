@@ -11,6 +11,7 @@
   --pa-compare: #ffad55;
   --pa-forecast: #b48cff;
   --pa-up: #31d47b;
+  --pa-winner-text: #31d47b;
   --pa-down: #ff6470;
   --pa-flat: #8b8b8b;
   --pa-chart-grid: rgba(255, 255, 255, 0.08);
@@ -30,6 +31,7 @@
   --pa-compare: #ad5700;
   --pa-forecast: #7449c7;
   --pa-up: #168a4e;
+  --pa-winner-text: #116b3b;
   --pa-down: #ca3542;
   --pa-flat: #747474;
   --pa-chart-grid: rgba(0, 0, 0, 0.08);
@@ -317,6 +319,7 @@ html { min-width: 320px; background: var(--pa-bg); }
 .product-analytics-ranking-empty { min-height: 118px; display: grid; place-items: center; color: var(--pa-muted); font-size: 10px; text-align: center; }
 
 .product-analytics-history { padding: 34px 0 0; }
+.product-analytics-history .product-analytics-section-heading > div { flex-shrink: 0; }
 .product-analytics-table-scroll { overflow-x: auto; border: 1px solid var(--pa-line); border-radius: 18px; background: var(--pa-surface); }
 .product-analytics-history table { width: 100%; min-width: 760px; border-collapse: collapse; font-size: 10px; font-variant-numeric: tabular-nums; }
 .product-analytics-history th,
@@ -328,6 +331,12 @@ html { min-width: 320px; background: var(--pa-bg); }
 .product-analytics-history th:last-child,
 .product-analytics-history td:last-child { border-right: 0; }
 .product-analytics-history tr.is-predicted td { color: color-mix(in srgb, var(--pa-forecast) 72%, var(--pa-text)); background: color-mix(in srgb, var(--pa-forecast) 5%, var(--pa-surface)); }
+.product-analytics-history td.is-comparison-winner {
+  background: color-mix(in srgb, var(--pa-up) 12%, var(--pa-surface));
+  color: var(--pa-winner-text);
+  font-weight: 700;
+}
+.product-analytics-winner-mark { display: inline-block; margin-right: 6px; }
 .product-analytics-change { display: inline-flex; gap: 5px; align-items: center; justify-content: flex-end; }
 .product-analytics-change.is-up { color: var(--pa-up); }
 .product-analytics-change.is-down { color: var(--pa-down); }
