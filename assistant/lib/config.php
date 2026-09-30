@@ -1,0 +1,41 @@
+<?php
+declare(strict_types=1);
+namespace JenangMcp;
+const VERSION = '0.1.0';
+const SCOPE = 'jg:sales:read';
+const PROTOCOLS = ['2025-03-26', '2025-06-18', '2025-11-25'];
+function config(): array {
+    $path = getenv('JG_MCP_CONFIG_FILE') ?: '';
+    // No fallback to the application's broad database principal or setup token.
+    if ($path === '' || !is_file($path)) throw new \RuntimeException('MCP configuration is not activated.');
+    $real = realpath($path); $root = realpath($_SERVER['DOCUMENT_ROOT'] ?? dirname(__DIR__, 2));
+    if (!$real || ($root && str_starts_with($real, $root . DIRECTORY_SEPARATOR))) throw new \RuntimeException('MCP configuration must be outside webroot.');
+    $c = require $real;
+    if (!is_array($c) || empty($c['enabled'])) throw new \RuntimeException('MCP is disabled.');
+    foreach (['base_url','client_id','redirect_uri','subject','state_file','accounts','databases'] as $k) {
+        if (empty($c[$k])) throw new \RuntimeException('MCP setup is incomplete.');
+    }
+    if ($c['base_url'] !== 'https://admin.jenanggemi.com' || !str_starts_with($c['redirect_uri'], 'https://chatgpt.com/')) throw new \RuntimeException('Canonical endpoint or callback is invalid.');
+    foreach (['accounts','brands','partners'] as $k) {
+        if (!isset($c[$k]) || !is_array($c[$k]) || array_filter($c[$k],fn($v)=>!is_string($v)||$v==='')) throw new \RuntimeException('Invalid connection scope.');
+    }
+    if ($c['brands']===[]) throw new \RuntimeException('Brand scope required.');
+    $stateDir = realpath(dirname($c['state_file']));
+    if (!$stateDir || ($root && str_starts_with($stateDir, $root . DIRECTORY_SEPARATOR)) || !is_writable($stateDir)) throw new \RuntimeException('Private adapter storage is unavailable.');
+    return $c;
+}
+function resource(array $c): string { return $c['base_url'] . '/assistant/mcp/'; }
+function issuer(array $c): string { return $c['base_url'] . '/assistant/oauth'; }
+function jsonResponse(array $data, int $status = 200): never {
+    http_response_code($status); header('Content-Type: application/json; charset=utf-8');
+    header('Cache-Control: no-store'); header('X-Content-Type-Options: nosniff');
+    echo json_encode($data, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR); exit;
+}
+function originAllowed(array $c): bool {
+    $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+    return $origin === '' || in_array($origin, [$c['base_url'], 'https://chatgpt.com'], true);
+}
+function requireHttps(): void {
+    // Do not trust caller-provided X-Forwarded-Proto. Host must terminate HTTPS.
+    if (empty($_SERVER['HTTPS']) || $_SERVER['HTTPS'] === 'off') jsonResponse(['error'=>'https_required'], 400);
+}

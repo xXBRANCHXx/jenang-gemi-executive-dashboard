@@ -1,3 +1,10 @@
 Options -Indexes
 DirectoryIndex index.php index.html
 SetEnvIf Authorization "(.+)" HTTP_AUTHORIZATION=$1
+
+# MCP discovery only; preserves existing dashboard routes.
+<IfModule mod_rewrite.c>
+RewriteEngine On
+RewriteRule ^\.well-known/oauth-protected-resource(?:/assistant/mcp/?)?$ assistant/oauth/protected-resource.php [L]
+RewriteRule ^\.well-known/oauth-authorization-server/assistant/oauth$ assistant/oauth/metadata.php [L]
+</IfModule>
