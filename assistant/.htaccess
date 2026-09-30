@@ -2,3 +2,6 @@ Options -Indexes
 <FilesMatch "\.(json|log|sqlite|sql|example|md)$">
     Require all denied
 </FilesMatch>
+
+# Approved private reporting configuration; no credentials in webroot.
+SetEnv JG_MCP_CONFIG_FILE /home/u558678012/domains/admin.jenanggemi.com/private/jenang-mcp/mcp-config.php
