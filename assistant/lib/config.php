@@ -22,6 +22,8 @@ function config(): array {
     if ($c['brands']===[]) throw new \RuntimeException('Brand scope required.');
     $stateDir = realpath(dirname($c['state_file']));
     if (!$stateDir || ($root && str_starts_with($stateDir, $root . DIRECTORY_SEPARATOR)) || !is_writable($stateDir)) throw new \RuntimeException('Private adapter storage is unavailable.');
+    $mode=$c['database_access_mode'] ?? 'dedicated_select_only';
+    if (!in_array($mode,['dedicated_select_only','app_internal_readonly'],true) || ($mode==='app_internal_readonly' && (empty($c['app_internal_readonly_approved']) || $c['partners']!==[]))) throw new \RuntimeException('Database security mode is not approved.');
     return $c;
 }
 function resource(array $c): string { return $c['base_url'] . '/assistant/mcp/'; }
