@@ -13,6 +13,10 @@ function tools(array $c=[]): array {
         $base+['name'=>'jg_resolve_product','title'=>'Resolve Jenang Gemi product','description'=>'Resolve exact product name, reporting identity or SKU/tag using the configured catalog source. Cached identities are marked cache: and carry their catalog as-of time. Never guesses ambiguous names.','inputSchema'=>['type'=>'object','properties'=>['product'=>['type'=>'string','minLength'=>1,'maxLength'=>180]],'required'=>['product'],'additionalProperties'=>false]],
         $base+['name'=>'jg_product_report','title'=>'Jenang Gemi product sales','description'=>'UNIT/ORDER COUNTS ONLY; never money, revenue, annualized revenue or all-business sales. Do not use this tool as a proxy for monetary questions. Count units/orders for any exact authorized product and explicit inclusive Asia/Jakarta dates (max366days). Includes active marketplace orders, website paid receipts, direct Pay Later, partner receivables under dashboard rules. Excludes cancelled marketplace orders and gifts. Reports partial sources/freshness; does not refresh or repair.','inputSchema'=>['type'=>'object','properties'=>['product'=>['type'=>'string','minLength'=>1,'maxLength'=>180],'start_date'=>['type'=>'string','pattern'=>'^\\d{4}-\\d{2}-\\d{2}$'],'end_date'=>['type'=>'string','pattern'=>'^\\d{4}-\\d{2}-\\d{2}$'],'accounts'=>['type'=>'array','items'=>['type'=>'string'],'minItems'=>1,'maxItems'=>30,'uniqueItems'=>true]],'required'=>['product','start_date','end_date'],'additionalProperties'=>false]]
     ];
+    if(in_array(TABLE_SCOPE,allowedScopes($c),true)){
+        $old[0]['securitySchemes']=[['type'=>'oauth2','scopes'=>[TABLE_SCOPE]]];
+        $old[0]['_meta']['securitySchemes']=$old[0]['securitySchemes'];
+    }
     return in_array(TABLE_SCOPE,allowedScopes($c),true) ? [...$old,...tableTools()] : $old;
 }
 function rpc(array $request,array $c,callable $read): ?array {
@@ -25,7 +29,7 @@ function rpc(array $request,array $c,callable $read): ?array {
     if (!is_array($params)) return $error(-32602,'Invalid parameters.');
     if ($method==='initialize') {
         $v=$params['protocolVersion'] ?? '';
-        return ['jsonrpc'=>'2.0','id'=>$id,'result'=>['protocolVersion'=>in_array($v,PROTOCOLS,true)?$v:PROTOCOLS[count(PROTOCOLS)-1],'capabilities'=>['tools'=>['listChanged'=>false]],'serverInfo'=>['name'=>'jenang-gemi-reporting','version'=>VERSION],'instructions'=>'Report Jakarta dates, units versus orders, and source freshness. Discover active capabilities with jg_get_context. Tools are discoverable before additional consent. If table_query_available is false but broader tools are advertised, call jg_list_tables to trigger the standard scope-upgrade consent; do not claim its data is already authorized. With dashboard scope, use list/describe/query for typed rows and groups, and annualize_sales for money. Product reports are units/orders, never revenue. If the requested view or metric is unavailable, say so; never substitute a product count or a zero. Consolidated channel records are not audited all-business revenue; report synchronization and deduplication limitations. No refresh, writes or money movement.']];
+        return ['jsonrpc'=>'2.0','id'=>$id,'result'=>['protocolVersion'=>in_array($v,PROTOCOLS,true)?$v:PROTOCOLS[count(PROTOCOLS)-1],'capabilities'=>['tools'=>['listChanged'=>false]],'serverInfo'=>['name'=>'jenang-gemi-reporting','version'=>VERSION],'instructions'=>'Report Jakarta dates, units versus orders, and source freshness. Discover active capabilities with jg_get_context. Tools are discoverable before additional consent. Calling the existing jg_get_context triggers standard scope-upgrade consent when broader access is privately approved but the token is narrow; this works even when new tool names are not yet loaded by the client; do not claim its data is already authorized. With dashboard scope, use list/describe/query for typed rows and groups, and annualize_sales for money. Product reports are units/orders, never revenue. If the requested view or metric is unavailable, say so; never substitute a product count or a zero. Consolidated channel records are not audited all-business revenue; report synchronization and deduplication limitations. No refresh, writes or money movement.']];
     }
     if ($method==='ping') return ['jsonrpc'=>'2.0','id'=>$id,'result'=>(object)[]];
     if ($method==='tools/list') return ['jsonrpc'=>'2.0','id'=>$id,'result'=>['tools'=>tools($c)]];
@@ -33,7 +37,7 @@ function rpc(array $request,array $c,callable $read): ?array {
     $name=$params['name'] ?? ''; $a=$params['arguments'] ?? [];
     if (!is_string($name) || !is_array($a)) return $error(-32602,'Invalid tool parameters.');
     if (!in_array($name,array_column(tools($c),'name'),true)) return $error(-32602,'Tool unavailable; business writes are not enabled.');
-    if(in_array($name,array_column(tableTools(),'name'),true) && !hasScope($c['_actor_scope'] ?? '',TABLE_SCOPE)) {
+    if((in_array($name,array_column(tableTools(),'name'),true) || ($name==='jg_get_context' && in_array(TABLE_SCOPE,allowedScopes($c),true))) && !hasScope($c['_actor_scope'] ?? '',TABLE_SCOPE)) {
         return ['jsonrpc'=>'2.0','id'=>$id,'result'=>[
             'content'=>[['type'=>'text','text'=>'Additional read-only dashboard consent is required. Your existing reporting grant has not changed.']],
             'isError'=>true,
