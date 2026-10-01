@@ -1,11 +1,22 @@
 <?php
 declare(strict_types=1);
 namespace JenangMcp;
-const VERSION = '0.2.0';
+const VERSION = '0.2.1';
 const SCOPE = 'jg:sales:read';
 const TABLE_SCOPE = 'jg:dashboard:read';
 const TABLE_FAMILIES = ['catalog','sales','stock','purchasing','accounting','wallets','partners','ads','customer_aggregates','website'];
 function allowedScopes(array $c): array { return !empty($c['table_access_approved']) && ($c['table_families'] ?? [])===TABLE_FAMILIES ? [SCOPE,TABLE_SCOPE] : [SCOPE]; }
+function hasScope(string $granted,string $required): bool { return in_array($required,explode(' ',$granted),true); }
+function canonicalGrantedScope(string $granted): string {
+    $parts=preg_split('/\s+/',trim($granted));
+    if(!$parts || count($parts)>2 || count($parts)!==count(array_unique($parts))) return '';
+    foreach($parts as $scope)if(!in_array($scope,[SCOPE,TABLE_SCOPE],true))return '';
+    return implode(' ',array_values(array_filter([SCOPE,TABLE_SCOPE],fn($scope)=>in_array($scope,$parts,true))));
+}
+function validGrantedScope(array $c,string $granted): bool {
+    $canonical=canonicalGrantedScope($granted);
+    return $canonical!=='' && array_diff(explode(' ',$canonical),allowedScopes($c))===[];
+}
 const PROTOCOLS = ['2025-03-26', '2025-06-18', '2025-11-25'];
 function config(): array {
     $path = getenv('JG_MCP_CONFIG_FILE') ?: '';

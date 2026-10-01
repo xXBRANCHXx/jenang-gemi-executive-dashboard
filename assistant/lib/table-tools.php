@@ -3,7 +3,7 @@ declare(strict_types=1);
 namespace JenangMcp;
 function tableTools(): array {
     $str=['type'=>'string'];$names=['catalog','sales_lines','sales_orders',...array_keys(tableRegistry())];
-    $base=['annotations'=>['readOnlyHint'=>true,'destructiveHint'=>false,'idempotentHint'=>true,'openWorldHint'=>false],'_meta'=>['securitySchemes'=>[['type'=>'oauth2','scopes'=>[TABLE_SCOPE]]]],'outputSchema'=>['type'=>'object','properties'=>['data'=>['type'=>'object']],'required'=>['data']]];
+    $base=['annotations'=>['readOnlyHint'=>true,'destructiveHint'=>false,'idempotentHint'=>true,'openWorldHint'=>false],'securitySchemes'=>[['type'=>'oauth2','scopes'=>[TABLE_SCOPE]]],'_meta'=>['securitySchemes'=>[['type'=>'oauth2','scopes'=>[TABLE_SCOPE]]]],'outputSchema'=>['type'=>'object','properties'=>['data'=>['type'=>'object']],'required'=>['data']]];
     $table=['type'=>'string','enum'=>$names];
     $arr=fn($item,$max=20)=>['type'=>'array','items'=>$item,'maxItems'=>$max];
     $filter=['type'=>'object','properties'=>['column'=>$str,'operator'=>['type'=>'string','enum'=>['eq','ne','gt','gte','lt','lte','in','is_null','not_null']],'value'=>['anyOf'=>[['type'=>'string'],['type'=>'number'],['type'=>'integer'],['type'=>'array','items'=>['anyOf'=>[['type'=>'string'],['type'=>'number'],['type'=>'integer']]],'minItems'=>1,'maxItems'=>100],['type'=>'null']]]],'required'=>['column','operator'],'additionalProperties'=>false];

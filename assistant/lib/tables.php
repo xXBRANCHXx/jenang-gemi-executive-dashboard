@@ -9,7 +9,7 @@ final class ReportingSourceUnavailable extends \RuntimeException {
     }
 }
 function tableAccess(array $c): void {
-    if (empty($c['table_access_approved']) || ($c['_actor_scope'] ?? '')!==TABLE_SCOPE || ($c['table_families'] ?? [])!==TABLE_FAMILIES) throw new \InvalidArgumentException('Dashboard table access requires the approved dashboard read grant and fresh OAuth consent.');
+    if (empty($c['table_access_approved']) || !hasScope($c['_actor_scope'] ?? '',TABLE_SCOPE) || ($c['table_families'] ?? [])!==TABLE_FAMILIES) throw new \InvalidArgumentException('Dashboard table access requires the approved dashboard read grant and fresh OAuth consent.');
 }
 function tableRegistry(): array {
     static $r;return $r ??= json_decode((string)file_get_contents(__DIR__.'/table-registry.json'),true,64,JSON_THROW_ON_ERROR);

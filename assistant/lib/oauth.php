@@ -36,8 +36,8 @@ function validateAuthorization(array $c, array $q): array {
     foreach (['client_id','redirect_uri','resource','response_type','code_challenge','code_challenge_method','state'] as $k) if (!isset($q[$k]) || !is_string($q[$k])) throw new \InvalidArgumentException('Incomplete authorization request.');
     if (!hash_equals($c['client_id'], $q['client_id']) || !hash_equals($c['redirect_uri'], $q['redirect_uri']) || $q['resource'] !== resource($c)) throw new \InvalidArgumentException('Unknown client, callback or resource.');
     if ($q['response_type'] !== 'code' || $q['code_challenge_method'] !== 'S256' || preg_match('/^[A-Za-z0-9_-]{43}$/D', $q['code_challenge']) !== 1) throw new \InvalidArgumentException('S256 PKCE is required.');
-    if (strlen($q['state']) < 1 || strlen($q['state']) > 1024 || !in_array($q['scope'] ?? SCOPE,allowedScopes($c),true)) throw new \InvalidArgumentException('Unsupported scope or state.');
-    return $q + ['scope'=>SCOPE];
+    if (strlen($q['state']) < 1 || strlen($q['state']) > 1024 || !is_string($q['scope'] ?? SCOPE) || !validGrantedScope($c,$q['scope'] ?? SCOPE)) throw new \InvalidArgumentException('Unsupported scope or state.');
+    $q['scope']=canonicalGrantedScope($q['scope'] ?? SCOPE);return $q;
 }
 function issueCode(array $c, array $q): string {
     $q = validateAuthorization($c, $q); $code = opaque();
@@ -59,12 +59,12 @@ function exchange(array $c, array $q): array {
         if (($q['grant_type'] ?? '') === 'authorization_code') {
             $hash=digest((string)($q['code'] ?? '')); $r=$s['codes'][$hash] ?? null;
             $v=(string)($q['code_verifier'] ?? ''); $challenge=rtrim(strtr(base64_encode(hash('sha256',$v,true)),'+/','-_'),'=');
-            if (!$r || !in_array($r['scope'],allowedScopes($c),true) || ($r['epoch'] ?? 0) !== ($c['revocation_epoch'] ?? 0) || $r['subject'] !== $c['subject'] || $r['client'] !== $q['client_id'] || $r['aud'] !== $q['resource'] || $r['redirect'] !== ($q['redirect_uri'] ?? '') || preg_match('/^[A-Za-z0-9._~-]{43,128}$/D',$v)!==1 || !hash_equals($r['challenge'],$challenge)) { audit($s,'token','invalid_grant'); return ['error'=>'invalid_grant']; }
+            if (!$r || !validGrantedScope($c,$r['scope']) || ($r['epoch'] ?? 0) !== ($c['revocation_epoch'] ?? 0) || $r['subject'] !== $c['subject'] || $r['client'] !== $q['client_id'] || $r['aud'] !== $q['resource'] || $r['redirect'] !== ($q['redirect_uri'] ?? '') || preg_match('/^[A-Za-z0-9._~-]{43,128}$/D',$v)!==1 || !hash_equals($r['challenge'],$challenge)) { audit($s,'token','invalid_grant'); return ['error'=>'invalid_grant']; }
             unset($s['codes'][$hash]); audit($s,'token','issued',$r['subject']); return mint($s,$r);
         }
         if (($q['grant_type'] ?? '') === 'refresh_token') {
             $hash=digest((string)($q['refresh_token'] ?? '')); $r=$s['refresh'][$hash] ?? null;
-            if (!$r || !in_array($r['scope'],allowedScopes($c),true) || $r['client'] !== $q['client_id'] || $r['aud'] !== $q['resource'] || $r['subject'] !== $c['subject'] || $r['epoch'] !== ($c['revocation_epoch'] ?? 0) || (isset($q['scope']) && $q['scope'] !== $r['scope'])) { audit($s,'refresh','invalid_grant'); return ['error'=>'invalid_grant']; }
+            if (!$r || !validGrantedScope($c,$r['scope']) || $r['client'] !== $q['client_id'] || $r['aud'] !== $q['resource'] || $r['subject'] !== $c['subject'] || $r['epoch'] !== ($c['revocation_epoch'] ?? 0) || (isset($q['scope']) && (!is_string($q['scope']) || canonicalGrantedScope($q['scope']) !== $r['scope']))) { audit($s,'refresh','invalid_grant'); return ['error'=>'invalid_grant']; }
             if ($r['used']) { foreach (['tokens','refresh'] as $b) foreach ($s[$b] as $h=>$item) if ($item['family']===$r['family']) unset($s[$b][$h]); audit($s,'refresh','replay_revoked',$r['subject']); return ['error'=>'invalid_grant']; }
             $s['refresh'][$hash]['used']=true; audit($s,'refresh','rotated',$r['subject']); return mint($s,$r);
         }
@@ -75,7 +75,7 @@ function authenticate(array $c, string $token): ?array {
     if ($token === '' || strlen($token)>128) return null;
     return state($c,function(array &$s) use($c,$token): ?array {
         $r=$s['tokens'][digest($token)] ?? null;
-        if (!$r || $r['aud'] !== resource($c) || !in_array($r['scope'],allowedScopes($c),true) || $r['subject'] !== $c['subject'] || $r['epoch'] !== ($c['revocation_epoch'] ?? 0) || $r['client'] !== $c['client_id']) { audit($s,'request','denied'); return null; }
+        if (!$r || $r['aud'] !== resource($c) || !validGrantedScope($c,$r['scope']) || $r['subject'] !== $c['subject'] || $r['epoch'] !== ($c['revocation_epoch'] ?? 0) || $r['client'] !== $c['client_id']) { audit($s,'request','denied'); return null; }
         return $r;
     });
 }
