@@ -2,7 +2,8 @@
 declare(strict_types=1);
 require_once dirname(__DIR__).'/lib/oauth.php';
 require_once dirname(__DIR__,2).'/auth.php';
-header('Cache-Control: no-store');header('X-Frame-Options: DENY');header("Content-Security-Policy: default-src 'none'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'");header('Referrer-Policy: no-referrer');
+header('Cache-Control: no-store');header('X-Frame-Options: DENY');header("Content-Security-Policy: default-src 'none'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'");// Keep form POST Origin verifiable while withholding referrers from the OAuth callback.
+header('Referrer-Policy: same-origin');
 try {
     JenangMcp\requireHttps();$c=JenangMcp\config();if (!JenangMcp\rateLimit($c,'assistant/oauth/authorize.php',30)) JenangMcp\jsonResponse(['error'=>'rate_limited'],429);if (!JenangMcp\originAllowed($c)) JenangMcp\jsonResponse(['error'=>'origin_denied'],403);
     jg_admin_start_session();
