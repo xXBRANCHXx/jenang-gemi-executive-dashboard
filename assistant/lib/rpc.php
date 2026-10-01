@@ -57,9 +57,9 @@ function rpc(array $request,array $c,callable $read): ?array {
         elseif ($name==='jg_query_table') $output=queryTable($c,$a);
         elseif ($name==='jg_annualize_sales') $output=annualizeSales($c,$a);
         else $output=productReport($read,$c,$a);
-        $result=['content'=>[['type'=>'text','text'=>json_encode($output,JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR)]],'structuredContent'=>$output,'isError'=>false];
+        $result=['content'=>[['type'=>'text','text'=>json_encode($output,JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR)]],'structuredContent'=>$output,'isError'=>$name==='jg_annualize_sales' && ($output['data']['status'] ?? '')==='required_sources_unavailable'];
     } catch (\InvalidArgumentException $e) { $result=['content'=>[['type'=>'text','text'=>$e->getMessage()]],'isError'=>true];
-    } catch (ReportingSourceUnavailable $e) { $result=['content'=>[['type'=>'text','text'=>$e->getMessage()]],'isError'=>true];
+    } catch (ReportingSourceUnavailable $e) { $result=['content'=>[['type'=>'text','text'=>$e->getMessage()]],'isError'=>true,'_meta'=>['jg/source_status'=>$e->diagnostics]];
     } catch (\Throwable) { $result=['content'=>[['type'=>'text','text'=>'Reporting source unavailable. No refresh or business mutation was attempted.']],'isError'=>true]; }
     return ['jsonrpc'=>'2.0','id'=>$id,'result'=>$result];
 }

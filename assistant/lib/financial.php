@@ -24,8 +24,8 @@ function financialRows(array $c,callable $fetch,array $p): array {
     try{$b=$c;$b['brands']=array_values(array_unique(array_column(passiveCatalogPayload($c)['lookup'],'brand_name')));foreach(passiveCatalog($b) as $r)foreach([$r['sku'],$r['tag']] as $alias)if($alias!=='')$lookup[$alias]=$r;$catalogAsOf=passiveCatalogTime($c);}catch(\Throwable){}
     $lines=[];$orders=[];$sources=[];$seen=[];$unmapped=0;
     foreach(['marketplace','website','direct','partner'] as $source){
-        try{$rows=$fetch($source,$p);if(count($rows)>50000)throw new \RuntimeException('Bound exceeded.');}
-        catch(\Throwable){throw new ReportingSourceUnavailable($source);}
+        try{$rows=$fetch($source,$p);if(count($rows)>50000)throw new ReportingSourceUnavailable($source,['reason'=>'scan_limit']);}
+        catch(\Throwable $e){$failure=new ReportingSourceUnavailable($source,sourceFailure($e));$sources[$source]=['status'=>'unavailable','diagnostics'=>$failure->diagnostics,'upstream_sync_completeness'=>'unknown'];continue;}
         $latest=null;
         foreach($rows as $r){
             $status=strtoupper((string)($r['status'] ?? ''));
@@ -61,6 +61,8 @@ function financialRows(array $c,callable $fetch,array $p): array {
         }
         $sources[$source]=['status'=>'queried','stored_rows'=>count($rows),'latest_matching_row_updated_at'=>$latest,'upstream_sync_completeness'=>'unknown'];
     }
+    $complete=count(array_filter($sources,fn($v)=>$v['status']==='queried'))===4;
+    if(!array_filter($sources,fn($v)=>$v['status']==='queried'))throw new ReportingSourceUnavailable('all_sales');
     foreach($orders as &$o){$source=$o['source'];$v=$o['_order_amount'];if(($source==='marketplace'&&$v===0)||($source==='partner'&&$v<=0))$v=$o['_line_sum'];$o['seller_revenue']=decimalString($v);unset($o['_order_amount'],$o['_line_sum']);}unset($o);
-    return ['lines'=>$lines,'orders'=>array_values($orders),'provenance'=>['sources'=>$sources,'catalog_snapshot_at'=>$catalogAsOf,'unmapped_sale_lines'=>$unmapped,'upstream_sync_verified'=>false,'cross_database_snapshot_atomic'=>false,'business_consolidation_verified'=>false,'recognition'=>'Active recorded seller/merchandise sales under source rules; direct and partner unpaid receivables included; excludes direct shipping. Partner records are a separate source; cross-channel duplicates are not reconciled.'],'warnings'=>['These are stored sales observations, not cash receipts or profit. No upstream refresh was performed.','Line revenue and whole-order seller revenue are different metrics; never sum repeated physical order totals.','Size/flavor filters depend on saved catalog mapping; unmapped lines have null size/unit and remain in unfiltered order totals.','Consolidated channel-record totals are not audited business revenue: upstream completeness and cross-channel duplication remain unverified.']];
+    return ['lines'=>$lines,'orders'=>array_values($orders),'provenance'=>['sources'=>$sources,'sources_complete'=>$complete,'total_status'=>$complete?'complete_for_stored_sources':'observed_partial_subtotal','catalog_snapshot_at'=>$catalogAsOf,'unmapped_sale_lines'=>$unmapped,'upstream_sync_verified'=>false,'cross_database_snapshot_atomic'=>false,'business_consolidation_verified'=>false,'recognition'=>'Active recorded seller/merchandise sales under source rules; direct and partner unpaid receivables included; excludes direct shipping. Partner records are a separate source; cross-channel duplicates are not reconciled.'],'warnings'=>['These are stored sales observations, not cash receipts or profit. No upstream refresh was performed.','Line revenue and whole-order seller revenue are different metrics; never sum repeated physical order totals.','Size/flavor filters depend on saved catalog mapping; unmapped lines have null size/unit and remain in unfiltered order totals.','Consolidated channel-record totals are not audited business revenue: upstream completeness and cross-channel duplication remain unverified.', $complete?'All four stored sources queried.':'A required source is unavailable; amounts/units are observed partial subtotals only. Missing sources are not zero.']];
 }

@@ -2,11 +2,32 @@
 declare(strict_types=1);
 namespace JenangMcp;
 require_once __DIR__.'/reports.php';
+const SOURCE_FAILURE_REASONS=['unavailable','host_resolution_failed','connection_failed','access_denied','database_missing','table_missing','column_missing','read_only_unavailable','settings_unavailable','scan_limit','query_failed'];
 final class ReportingSourceUnavailable extends \RuntimeException {
-    public function __construct(string $source) {
-        if(!in_array($source,['analytics','sku','partner','marketplace','website','direct'],true))$source='analytics';
-        parent::__construct('Required reporting source unavailable: '.$source.'. No total is inferred and no refresh was attempted.');
+    public readonly array $diagnostics;
+    public function __construct(string $source,array $diagnostics=[]) {
+        if(!in_array($source,['analytics','sku','partner','marketplace','website','direct','all_sales'],true))$source='analytics';
+        $reason=in_array($diagnostics['reason'] ?? '',SOURCE_FAILURE_REASONS,true)?$diagnostics['reason']:'unavailable';
+        $clean=['source'=>$source,'reason'=>$reason];
+        if(is_string($diagnostics['sqlstate'] ?? null)&&preg_match('/^[A-Z0-9]{5}$/D',$diagnostics['sqlstate']))$clean['sqlstate']=$diagnostics['sqlstate'];
+        if(is_int($diagnostics['driver_code'] ?? null)&&$diagnostics['driver_code']>0&&$diagnostics['driver_code']<=9999)$clean['driver_code']=$diagnostics['driver_code'];
+        if(is_array($diagnostics['attempts'] ?? null)){
+            $attempts=[];foreach(array_slice($diagnostics['attempts'],0,2) as $attempt)if(is_array($attempt)&&in_array($attempt['binding'] ?? '',['configured','application_alias'],true)){
+                $item=['binding'=>$attempt['binding'],'reason'=>in_array($attempt['reason'] ?? '',SOURCE_FAILURE_REASONS,true)?$attempt['reason']:'unavailable'];
+                if(is_int($attempt['driver_code'] ?? null)&&$attempt['driver_code']>0&&$attempt['driver_code']<=9999)$item['driver_code']=$attempt['driver_code'];$attempts[]=$item;
+            }$clean['attempts']=$attempts;
+        }
+        $this->diagnostics=$clean;
+        parent::__construct('Required reporting source unavailable: '.$source.' ('.$reason.(isset($clean['driver_code'])?'; driver'.$clean['driver_code']:'').'). No total is inferred and no refresh was attempted.');
     }
+}
+function sourceFailure(\Throwable $e): array {
+    if($e instanceof ReportingSourceUnavailable)return $e->diagnostics;
+    if(!$e instanceof \PDOException)return ['reason'=>'unavailable'];
+    $info=$e->errorInfo ?? [];$driver=isset($info[1])?(int)$info[1]:null;$state=is_string($info[0] ?? null)?$info[0]:null;
+    $reason=match($driver){1045,1044=>'access_denied',1049=>'database_missing',1146=>'table_missing',1054=>'column_missing',2002,2003,2006,2013=>'connection_failed',default=>'query_failed'};
+    if(in_array($driver,[2002,2003],true)&&preg_match('/getaddrinfo|php_network_getaddresses|Name or service not known|nodename nor servname/i',$e->getMessage()))$reason='host_resolution_failed';
+    return array_filter(['reason'=>$reason,'driver_code'=>$driver,'sqlstate'=>$state],fn($x)=>$x!==null);
 }
 function tableAccess(array $c): void {
     if (empty($c['table_access_approved']) || !hasScope($c['_actor_scope'] ?? '',TABLE_SCOPE) || ($c['table_families'] ?? [])!==TABLE_FAMILIES) throw new \InvalidArgumentException('Dashboard table access requires the approved dashboard read grant and fresh OAuth consent.');
@@ -123,19 +144,31 @@ final class TableReader {
     private function connection(string $db): \PDO {
         if(isset($this->connections[$db]))return $this->connections[$db];
         if(!in_array($db,['analytics','sku','partner'],true))throw new \LogicException('Unknown source.');
-        $d=$this->resolver?($this->resolver)($db):tableSettings($db);
+        try{$d=$this->resolver?($this->resolver)($db):tableSettings($db);}catch(\Throwable){throw new ReportingSourceUnavailable($db,['reason'=>'settings_unavailable']);}
         if($db==='analytics'&&(($d['host'] ?? '')!==$this->c['app_expected_host']||($d['name'] ?? '')!==$this->c['app_expected_database']))throw new \RuntimeException('Analytics target differs from approved scope.');
         $multi=defined('Pdo\\Mysql::ATTR_MULTI_STATEMENTS')?constant('Pdo\\Mysql::ATTR_MULTI_STATEMENTS'):constant('PDO::MYSQL_ATTR_MULTI_STATEMENTS');
         $options=[\PDO::ATTR_ERRMODE=>\PDO::ERRMODE_EXCEPTION,\PDO::ATTR_DEFAULT_FETCH_MODE=>\PDO::FETCH_ASSOC,\PDO::ATTR_EMULATE_PREPARES=>false,\PDO::ATTR_TIMEOUT=>5,$multi=>false];
-        $pdo=$this->factory?($this->factory)($d,$options):new \PDO($d['dsn'],$d['user'],$d['password'],$options);
-        if(!$pdo instanceof \PDO||$pdo->exec('SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ')===false||$pdo->exec('SET SESSION TRANSACTION READ ONLY')===false||!$pdo->beginTransaction()||!$pdo->inTransaction())throw new \RuntimeException('Read-only transaction unavailable.');
+        $bindings=[['settings'=>$d,'label'=>'configured']];
+        // Match existing jg_partner_db_host_candidates exactly; never change database/user/grants.
+        if($db==='partner'&&($d['host'] ?? '')==='local.server'&&str_starts_with($d['dsn'],'mysql:host=local.server;')){
+            $fallback=$d;$fallback['host']='localhost';$fallback['dsn']=preg_replace('/^mysql:host=local\.server;/','mysql:host=localhost;',$d['dsn']);
+            $bindings[]=['settings'=>$fallback,'label'=>'application_alias'];
+        }
+        $pdo=null;$attempts=[];
+        foreach($bindings as $binding){
+            $settings=$binding['settings'];
+            try{$pdo=$this->factory?($this->factory)($settings,$options):new \PDO($settings['dsn'],$settings['user'],$settings['password'],$options);break;}
+            catch(\Throwable $e){$failure=sourceFailure($e);$attempts[]=['binding'=>$binding['label']]+$failure;}
+        }
+        if(!$pdo instanceof \PDO)throw new ReportingSourceUnavailable($db,($failure ?? ['reason'=>'connection_failed'])+['attempts'=>$attempts]);
+        if(!$pdo instanceof \PDO||$pdo->exec('SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ')===false||$pdo->exec('SET SESSION TRANSACTION READ ONLY')===false||!$pdo->beginTransaction()||!$pdo->inTransaction())throw new ReportingSourceUnavailable($db,['reason'=>'read_only_unavailable']);
         return $this->connections[$db]=$pdo;
     }
     private function select(string $db,string $sql,array $args): array {
         $pdo=$this->connection($db);if(!$pdo->inTransaction())throw new \RuntimeException('Transaction ended.');
         $stmt=$pdo->prepare(substr_replace($sql,'SELECT /*+ MAX_EXECUTION_TIME(5000) */',0,6));$stmt->execute($args);return $stmt->fetchAll();
     }
-    public function query(array $spec): array { $q=compileTableQuery($spec);try{return $this->select($q['database'],$q['sql'],$q['args']);}catch(\Throwable){throw new ReportingSourceUnavailable($q['database']);} }
+    public function query(array $spec): array { $q=compileTableQuery($spec);try{return $this->select($q['database'],$q['sql'],$q['args']);}catch(\Throwable $e){throw new ReportingSourceUnavailable($q['database'],sourceFailure($e));} }
     public function sales(string $source,array $p): array {return $this->select($source==='partner'?'partner':'analytics',financialSelect($source),[$p['from_utc'],$p['to_utc']]);}
     public function __destruct(){foreach($this->connections as $p)try{if($p->inTransaction())$p->rollBack();}catch(\Throwable){}}
 }
@@ -188,7 +221,7 @@ function queryTable(array $c,array $a,?TableReader $reader=null,?\Closure $sales
         $rows=queryMemoryRows($d['name']==='sales_orders'?$data['orders']:$data['lines'],$s);$provenance+=$data['provenance'];$provenance['period']=$p;$warnings=array_merge($warnings,$data['warnings']);
     }else{$reader??=new TableReader($c);$rows=$reader->query($s);}
     $more=count($rows)>$s['limit'];if($more)array_pop($rows);
-    return ['generated_at'=>$observed,'business_timezone'=>'Asia/Jakarta','data'=>['table'=>$d['name'],'rows'=>$rows,'metrics'=>$s['metrics'],'group_by'=>$s['group_by'],'filters'=>$s['filters'],'currency'=>in_array($d['name'],['sales_orders','sales_lines'],true)?'IDR':null],'pagination'=>['limit'=>$s['limit'],'offset'=>$s['offset'],'has_more'=>$more,'next_offset'=>$more?$s['offset']+$s['limit']:null,'stable_snapshot_across_pages'=>false],'provenance'=>$provenance,'warnings'=>$warnings];
+    return ['generated_at'=>$observed,'business_timezone'=>'Asia/Jakarta','data'=>['table'=>$d['name'],'rows'=>$rows,'metrics'=>$s['metrics'],'group_by'=>$s['group_by'],'filters'=>$s['filters'],'total_status'=>isset($data)?($data['provenance']['sources_complete']?'complete_for_stored_sources':'observed_partial_subtotal'):'not_a_consolidated_sales_total','currency'=>in_array($d['name'],['sales_orders','sales_lines'],true)?'IDR':null],'pagination'=>['limit'=>$s['limit'],'offset'=>$s['offset'],'has_more'=>$more,'next_offset'=>$more?$s['offset']+$s['limit']:null,'stable_snapshot_across_pages'=>false],'provenance'=>$provenance,'warnings'=>$warnings];
 }
 function annualizeSales(array $c,array $a,?TableReader $reader=null,?\Closure $fixture=null,?\DateTimeImmutable $now=null): array {
     tableAccess($c);if(array_diff(array_keys($a),['month','basis']))throw new \InvalidArgumentException('Provide month and basis only.');
@@ -201,6 +234,7 @@ function annualizeSales(array $c,array $a,?TableReader $reader=null,?\Closure $f
     if($elapsed<=0)return ['data'=>['status'=>'insufficient_completed_history','month'=>$a['month'],'basis'=>$basis,'annualized_sales_revenue'=>null],'warnings'=>['No completed day exists yet. Do not substitute zero, product units or an elapsed-time forecast.']];
     $end=$cutoff->modify('-1 second');$p=period(['start_date'=>$start->format('Y-m-d'),'end_date'=>$end->format('Y-m-d')],$now);$p['to_utc']=$cutoff->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d H:i:s');
     if(!$fixture)$reader??=new TableReader($c);$data=financialRows($c,$fixture ?? fn($src,$p)=>$reader->sales($src,$p),$p);$total=0;foreach($data['orders'] as $o)$total=safeAdd($total,scaledDecimal($o['seller_revenue']));
+    if(!$data['provenance']['sources_complete'])return ['generated_at'=>gmdate(DATE_ATOM),'business_timezone'=>'Asia/Jakarta','data'=>['status'=>'required_sources_unavailable','month'=>$a['month'],'basis'=>$basis,'actual_observed_sales_subtotal'=>decimalString($total),'total_status'=>'observed_partial_subtotal','annualized_sales_revenue'=>null,'currency'=>'IDR','cutoff_at'=>$cutoff->format(DATE_ATOM)],'provenance'=>$data['provenance'],'warnings'=>array_merge($data['warnings'],['Annualization is blocked because a required source is unavailable. The observed subtotal is not a full business total; do not project it as full revenue.'])];
     $year=(int)$start->format('Y');$yearSeconds=(new \DateTimeImmutable(($year+1).'-01-01',$tz))->getTimestamp()-(new \DateTimeImmutable($year.'-01-01',$tz))->getTimestamp();
     $projection=(int)round($total*($yearSeconds/$elapsed));if(abs($projection)>8000000000000000)throw new \RuntimeException('Projection exceeds safe bound.');
     return ['generated_at'=>gmdate(DATE_ATOM),'business_timezone'=>'Asia/Jakarta','data'=>['month'=>$a['month'],'basis'=>$basis,'actual_observed_sales_revenue'=>decimalString($total),'annualized_sales_revenue'=>decimalString($projection),'currency'=>'IDR','elapsed_seconds'=>$elapsed,'year_seconds'=>$yearSeconds,'cutoff_at'=>$cutoff->format(DATE_ATOM),'measurement'=>'Recorded seller sales revenue run rate; never a product-unit proxy or an audited business forecast'],'provenance'=>$data['provenance'],'warnings'=>array_merge($data['warnings'],['Annualization is a mechanical run rate, not actual annual revenue or a forecast. Current-day elapsed-time basis can be highly volatile; stored-source synchronization remains unverified.'])];
