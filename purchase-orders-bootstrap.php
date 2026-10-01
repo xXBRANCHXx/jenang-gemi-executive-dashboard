@@ -283,17 +283,19 @@ function jg_purchase_orders_accounting_category(array $order): array
         ];
 }
 
-function jg_purchase_orders_fetch(PDO $pdo, int $limit = 20): array
+function jg_purchase_orders_fetch(PDO $pdo, int $limit = 20, ?int $orderId = null): array
 {
     jg_purchase_orders_ensure_schema($pdo);
     $limit = max(1, min(1000, $limit));
-    $orders = $pdo->query(
+    $ordersStmt = $pdo->prepare(
         'SELECT id, po_number, status, order_type, tag, note, line_count, ordered_qty, received_qty,
                 estimated_total, placed_by, placed_at, confirmed_at, updated_at, completed_at
-         FROM purchase_orders
+         FROM purchase_orders' . ($orderId !== null ? ' WHERE id = :order_id' : '') . '
          ORDER BY placed_at DESC, id DESC
          LIMIT ' . $limit
-    )->fetchAll();
+    );
+    $ordersStmt->execute($orderId !== null ? [':order_id' => $orderId] : []);
+    $orders = $ordersStmt->fetchAll();
     if (!is_array($orders) || $orders === []) {
         return [];
     }
@@ -637,7 +639,7 @@ function jg_purchase_orders_create_draft(PDO $pdo, array $items, string $note, s
 
 function jg_purchase_orders_find(PDO $pdo, int $orderId): array
 {
-    foreach (jg_purchase_orders_fetch($pdo, 1000) as $order) {
+    foreach (jg_purchase_orders_fetch($pdo, 1, $orderId) as $order) {
         if ((int) ($order['id'] ?? 0) === $orderId) return $order;
     }
     throw new RuntimeException('Purchase order not found.');

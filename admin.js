@@ -8862,6 +8862,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	  const inventoryRecapUrl = (options = {}) => {
 	    const url = new URL(inventoryRecapEndpoint, window.location.href);
+	    if (state.inventoryRecap.selectedOrderId > 0) url.searchParams.set('po', String(state.inventoryRecap.selectedOrderId));
 	    if (options.cacheBust || options.force) url.searchParams.set('_ts', String(Date.now()));
 	    return url.toString();
 	  };
@@ -11638,7 +11639,8 @@ document.addEventListener('DOMContentLoaded', () => {
 	  };
 
 		  const loadInventoryRecap = async (options = {}) => {
-		    if (!options.force && state.inventoryRecap.data) {
+		    const needsSelectedOrder = state.inventoryRecap.selectedOrderId > 0 && !selectedPurchaseOrder();
+		    if (!options.force && !needsSelectedOrder && state.inventoryRecap.data) {
 		      if (isFresh(state.inventoryRecap.loadedAt, VIEW_CACHE_TTL_MS['inventory-recap'])) {
 		        applyInventoryRecapData(state.inventoryRecap.data, { loadedAt: state.inventoryRecap.loadedAt });
 		        return;
@@ -11649,7 +11651,7 @@ document.addEventListener('DOMContentLoaded', () => {
 		        return;
 		      }
 		    }
-		    if (!options.force && !state.inventoryRecap.data && options.useCache !== false) {
+		    if (!options.force && !needsSelectedOrder && !state.inventoryRecap.data && options.useCache !== false) {
 		      const restored = await restoreViewClientCache('inventory-recap', inventoryRecapClientCacheKey(), (data, cache) => {
 		        applyInventoryRecapData(data, { loadedAt: cache.savedAt || Date.now() });
 		      }).catch(() => false);

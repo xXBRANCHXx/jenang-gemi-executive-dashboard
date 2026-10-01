@@ -16,6 +16,7 @@ Private admin dashboard for `admin.jenanggemi.com` behind a public Launch Pad.
 - `/customer-profiles/` (repeat-customer profiles across marketplace, website, WhatsApp, and walk-in sales)
 - `/sku-db/`
 - `/sku-db/new/`
+- `/product-purchases/` (purchase quantities and value by SKU and date range)
 - `/logout/`
 - `/api/analytics/`
 - `/api/sales/` (authenticated summary; refreshes dashboard cache only)
@@ -28,6 +29,7 @@ Private admin dashboard for `admin.jenanggemi.com` behind a public Launch Pad.
 - `/api/ads/`
 - `/api/profit-loss/`
 - `/api/sku-db/`
+- `/api/product-purchases/` (authenticated, read-only product purchase history)
 - `/api/partner-db-status/`
 - `/api/zero-store/`
 - `/api/jenang-gemi-store/`
@@ -63,6 +65,27 @@ and the blog editor. The dialog suite checks 32 native form
 layouts in portrait and landscape. Both use a loopback-only fixture server with
 sample and empty/error states; transaction writes and external requests are
 disabled. They do not validate live credentials or complete real transactions.
+
+## Purchases by product
+
+PO History links to `/product-purchases/`, also listed under Products & stock →
+Reports. Choose a product or browse the purchased-product list, with Last 30 days,
+This month, Last month, This year, All time, or custom inclusive dates. Product
+and date selections are bookmarkable; each product links to its underlying POs.
+
+Totals include confirmed pending, partially received, and received POs, including
+overflow orders. Drafts and cancelled POs are excluded. Periods use the confirmation
+timestamp (creation timestamp for legacy POs), converted from UTC to Jakarta
+calendar days. Received units are receipts to date from those POs, rather than
+receipts made during the selected dates. Purchase value uses the saved PO unit
+cost, independent of current COGS and payment status. The report queries the full
+history without the recent-order list limit and retains archived SKUs.
+
+Validation: `php tests/product-purchases-test.php` (PDO SQLite) and
+`node tests/product-purchases-browser.cjs` (PHP, PDO SQLite and Playwright).
+The browser test renders the real PHP page and report SQL with isolated fixtures.
+`PHP_BINARY`, `PLAYWRIGHT_MODULE`, and `CHROMIUM_PATH` support local installations;
+`PURCHASES_SCREENSHOT_DIR` optionally saves desktop dark/light and phone previews.
 
 ## Product analytics
 

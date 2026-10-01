@@ -545,4 +545,14 @@ inventory_recap_expect('initial', $newPlain60['risk'] ?? '', 'Initial purchases 
 inventory_recap_expect(false, $newPlain60['restock_needed'] ?? true, 'An initial purchase must not be classified as replenishment.');
 inventory_recap_expect(1, $initialPayload['summary']['initial_purchase_count'] ?? 0, 'The recap must count never-stocked products separately.');
 
+// Product purchase-history links must open orders outside the recent list.
+$historicalOrderId = (int) $placedOrder['id'];
+$newerOrder = $skuPdo->prepare('INSERT INTO purchase_orders (id, po_number, status, note, placed_at, updated_at) VALUES (?, ?, "received", "", "2027-01-01 00:00:00", "2027-01-01 00:00:00")');
+for ($id = 10000; $id < 11001; $id++) $newerOrder->execute([$id, 'NEWER-' . $id]);
+$historicalPayload = jg_inventory_recap_payload($skuPdo, $analyticsPdo, ['amount' => 1000000], $recapInput + ['po' => $historicalOrderId]);
+inventory_recap_expect_true(in_array($historicalOrderId, array_column($historicalPayload['purchase_orders'], 'id'), true), 'A requested historical PO must be appended to the limited recent-order list.');
+inventory_recap_expect(1001, count($historicalPayload['purchase_orders']), 'Historical lookup must preserve the existing recent-list limit.');
+$recentPayload = jg_inventory_recap_payload($skuPdo, $analyticsPdo, ['amount' => 1000000], $recapInput);
+inventory_recap_expect(1000, count($recentPayload['purchase_orders']), 'Normal inventory requests must retain their existing list limit.');
+
 echo "inventory-recap-test: ok\n";

@@ -244,6 +244,17 @@
       "view": "po-detail"
     },
     {
+      "id": "product-purchases",
+      "title": "Purchases by product",
+      "source": "/product-purchases/",
+      "description": "See units and purchase value per product in a selected date range.",
+      "area": "products",
+      "section": "REPORTS",
+      "href": "/product-purchases/",
+      "view": null,
+      "icon": "clock"
+    },
+    {
       "id": "breakdowns",
       "title": "Product performance",
       "source": "/product-breakdowns/",

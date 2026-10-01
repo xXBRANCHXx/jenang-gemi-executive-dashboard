@@ -58,7 +58,7 @@ $sidebarSection = match (true) {
     in_array($requestedView ?? '', ['website', 'site', 'home', 'campaign', 'campaigns', 'landing', 'landing-pages'], true) => 'website',
     default => 'home',
 };
-$dashboardBuildVersion = 'exec3.98.36';
+$dashboardBuildVersion = 'exec3.98.37';
 $adminCssVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.css');
 $adminJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/admin.js');
 $storeOpsJsVersion = $dashboardBuildVersion . '-' . (string) @filemtime(dirname(__DIR__) . '/store-ops.js');
@@ -975,6 +975,7 @@ $shipmentArrangementJsVersion = $dashboardBuildVersion . '-' . (string) @filemti
 	                            </div>
 	                            <label class="admin-po-history-search"><span>Search PO history</span><input type="search" data-po-history-search placeholder="PO number, tag, product, or SKU"></label>
 	                        </header>
+	                        <a class="admin-ghost-btn" href="../product-purchases/">Purchases by product →</a>
 	                        <div class="admin-po-history-list" data-po-history-list><p class="admin-empty">Loading purchase orders.</p></div>
 	                    </section>
 
