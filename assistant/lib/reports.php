@@ -3,6 +3,23 @@ declare(strict_types=1);
 namespace JenangMcp;
 require_once __DIR__.'/config.php';
 function normalize(string $s): string { return strtolower(preg_replace('/[^a-zA-Z0-9]/','',$s) ?? ''); }
+function partnerDateBasis(array $a): string {
+    $basis=array_key_exists('partner_date_basis',$a)?$a['partner_date_basis']:'order_time';
+    if(!is_string($basis)||!in_array($basis,['order_time','recorded_at'],true))throw new \InvalidArgumentException('Choose partner_date_basis order_time or recorded_at.');
+    return $basis;
+}
+function partnerDateColumn(string $basis): string {
+    return match(partnerDateBasis(['partner_date_basis'=>$basis])){'recorded_at'=>'created_at','order_time'=>'COALESCE(order_timestamp,created_at)'};
+}
+function salesDateBasis(array $p): array {
+    $basis=partnerDateBasis($p);
+    return ['marketplace'=>'order_create_time UTC','website'=>'paid_at UTC','direct'=>'listed_at or created_at UTC',
+        'partner_date_basis'=>$basis,'partner'=>$basis==='recorded_at'?'created_at UTC (recording time, not order event time)':'order_timestamp or created_at assumed UTC (historical local-input timezone unverified)',
+        'partner_order_time_timezone_verified'=>false,'display_timezone'=>'Asia/Jakarta'];
+}
+function partnerDateWarning(array $p): string {
+    return partnerDateBasis($p)==='recorded_at'?'Partner dates use created_at UTC recording time; backdated orders count when recorded, not when the sale occurred. No order_timestamp values were shifted or repaired.':'Partner order_time assumes stored order_timestamp UTC; historical local form inputs can have an incorrect offset. Use explicit partner_date_basis recorded_at for recording-time reports. No historical timezone correction is inferred.';
+}
 function period(array $a, ?\DateTimeImmutable $now=null): array {
     foreach (['start_date','end_date'] as $k) {
         if (!isset($a[$k]) || !is_string($a[$k])) throw new \InvalidArgumentException('Explicit dates are required.');
@@ -13,7 +30,7 @@ function period(array $a, ?\DateTimeImmutable $now=null): array {
     if ($days<0 || $days>365) throw new \InvalidArgumentException('Date range must be 1–366 days.');
     $now=($now ?? new \DateTimeImmutable('now'))->setTimezone(new \DateTimeZone('Asia/Jakarta'));
     if ($dates['end_date']->format('Y-m-d')>$now->format('Y-m-d')) throw new \InvalidArgumentException('Future dates are not supported.');
-    return ['start_date'=>$a['start_date'],'end_date'=>$a['end_date'],'partial_current_day'=>$a['end_date']===$now->format('Y-m-d'),'from_utc'=>$dates['start_date']->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d H:i:s'),'to_utc'=>$dates['end_date']->modify('+1 day')->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d H:i:s')];
+    return ['partner_date_basis'=>partnerDateBasis($a),'start_date'=>$a['start_date'],'end_date'=>$a['end_date'],'partial_current_day'=>$a['end_date']===$now->format('Y-m-d'),'from_utc'=>$dates['start_date']->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d H:i:s'),'to_utc'=>$dates['end_date']->modify('+1 day')->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d H:i:s')];
 }
 require_once __DIR__.'/app-reader.php';
 const CATALOG_SQL = 'SELECT s.sku,s.tag,s.volume,u.name AS unit,s.product_id,b.name AS brand,p.name AS product,f.name AS flavor FROM sku_skus s JOIN sku_units u ON u.id=s.unit_id JOIN sku_brands b ON b.id=s.brand_id JOIN sku_products p ON p.id=s.product_id JOIN sku_flavors f ON f.id=s.flavor_id ORDER BY s.sku LIMIT 2001';
@@ -30,14 +47,15 @@ function resolve(array $rows,string $q): array {
     if (count($groups)!==1) throw new \InvalidArgumentException(count($groups)>1 ? 'Product is ambiguous; specify exact catalog product ID.' : 'Product is absent from the authorized catalog; use exact product name or SKU.');
     $g=array_values($groups)[0]; $g['variants']=array_values(array_filter($rows,fn($r)=>$r['product_id']===$g['product_id'])); return $g;
 }
-function sourceSelect(string $source,int $aliasCount=0): string {
+function sourceSelect(string $source,int $aliasCount=0,string $partnerBasis='order_time'): string {
+    $partnerDate=partnerDateColumn($partnerBasis);
     if ($aliasCount<0 || $aliasCount>4000) throw new \InvalidArgumentException('Alias bound exceeded.');
     $where=implode(',',array_fill(0,$aliasCount,'?'));
     return match($source) {
         'marketplace'=>"SELECT platform,account_key,order_id,order_item_hash AS line_id,sku,item_key,status,funds_release_status,quantity,is_free_gift,order_create_time AS sale_at,mirrored_at AS source_updated_at FROM dashboard_order_mirror WHERE deleted_at IS NULL AND platform IN ('shopee','tiktok','tokopedia') AND order_create_time>=? AND order_create_time<? AND (sku IN ($where) OR item_key IN ($where)) ORDER BY order_create_time,id LIMIT 50001",
         'website'=>"SELECT o.platform,o.platform AS account_key,o.order_id,i.id AS line_id,i.sku,o.status,i.quantity,0 AS is_free_gift,o.paid_at AS sale_at,o.updated_at AS source_updated_at FROM website_orders o JOIN website_order_items i ON i.website_order_id=o.id WHERE o.paid_at IS NOT NULL AND o.paid_at>=? AND o.paid_at<? AND i.sku IN ($where) ORDER BY o.paid_at,o.id,i.id LIMIT 50001",
         'direct'=>"SELECT o.sales_channel AS platform,CASE WHEN o.sales_channel='walk_in' THEN 'counter' ELSE 'direct' END AS account_key,o.order_id,i.id AS line_id,i.sku,o.status,o.payment_status,i.quantity,0 AS is_free_gift,COALESCE(o.listed_at,o.created_at) AS sale_at,o.updated_at AS source_updated_at FROM whatsapp_orders o JOIN whatsapp_order_items i ON i.whatsapp_order_id=o.id WHERE o.status IN ('IS_LISTED','IS_BEING_FULFILLED','FULFILLED') AND o.archive_hide_charts=0 AND COALESCE(o.listed_at,o.created_at)>=? AND COALESCE(o.listed_at,o.created_at)<? AND i.sku IN ($where) ORDER BY o.created_at,o.id,i.id LIMIT 50001",
-        'partner'=>'SELECT id,partner_code,sku_code,quantity,status,items_json,COALESCE(order_timestamp,created_at) AS sale_at,created_at AS source_updated_at FROM partner_orders WHERE COALESCE(order_timestamp,created_at)>=? AND COALESCE(order_timestamp,created_at)<? ORDER BY id LIMIT 10001',
+        'partner'=>"SELECT id,partner_code,sku_code,quantity,status,items_json,$partnerDate AS sale_at,created_at AS source_updated_at FROM partner_orders WHERE $partnerDate>=? AND $partnerDate<? ORDER BY id LIMIT 10001",
         default=>throw new \LogicException('Unknown reporting source.')
     };
 }
@@ -46,7 +64,7 @@ function sourceRows(callable $read,string $source,array $p,array $aliases): arra
     if (in_array($source,['marketplace','website','direct'],true)) {
         return $read('analytics',sourceSelect($source,count($aliases)),$source==='marketplace'?[...$args,...$aliases]:$args);
     }
-    $orders=$read('partner',sourceSelect('partner'),[$p['from_utc'],$p['to_utc']]);
+    $orders=$read('partner',sourceSelect('partner',0,partnerDateBasis($p)),[$p['from_utc'],$p['to_utc']]);
     if (count($orders)>10000) throw new \RuntimeException('Partner report bound exceeded.');
     $rows=[];
     foreach ($orders as $o) {
@@ -70,7 +88,7 @@ function summarySnapshot(array $c,int $year): array {
     return ['snapshot_at'=>$s['meta']['snapshot_at'] ?? null,'note'=>'Historical dashboard cache metadata; not freshness of this direct query.','sync'=>array_intersect_key($s['sync_status'] ?? [],array_flip(['last_sync_finished_at','last_sync_started_at','stale_after_seconds','accounts_ok','accounts_checked']))];
 }
 function productReport(callable $read,array $c,array $a,?\DateTimeImmutable $now=null): array {
-    $allowed=['product','start_date','end_date','accounts'];
+    $allowed=['product','start_date','end_date','accounts','partner_date_basis'];
     if (array_diff(array_keys($a),$allowed)) throw new \InvalidArgumentException('Unknown report arguments.');
     if (!is_string($a['product'] ?? null)) throw new \InvalidArgumentException('Product must be a string.');
     $p=period($a,$now);
@@ -80,7 +98,7 @@ function productReport(callable $read,array $c,array $a,?\DateTimeImmutable $now
     if (!is_array($accounts) || $accounts===[] || count($accounts)!==count(array_unique($accounts,SORT_REGULAR)) || count($accounts)>30 || array_filter($accounts,fn($v)=>!is_string($v)) || array_diff($accounts,$c['accounts'])) throw new \InvalidArgumentException('Account selection is unauthorized or invalid.');
     $map=[];
     foreach ($product['variants'] as $v) foreach ([$v['sku'],$v['tag']] as $alias) $map[$alias]=$v;
-    $units=0;$orders=[];$variants=[];$accountUnits=[];$sources=[];$warnings=[];$excluded=0;$directUnpaid=0;
+    $units=0;$orders=[];$variants=[];$accountUnits=[];$sources=[];$warnings=[partnerDateWarning($p)];$excluded=0;$directUnpaid=0;
     foreach (['marketplace','website','direct','partner'] as $source) {
         if ($source==='partner' && empty($c['partners'])) {
             $sources[$source]=['status'=>'excluded_by_grant','freshness'=>'unknown'];
@@ -128,5 +146,5 @@ function productReport(callable $read,array $c,array $a,?\DateTimeImmutable $now
     $warnings[]='Catalog SKU and tag aliases count one sale unit per recorded quantity. Unmapped bundle aliases are not expanded.';
     if ($directUnpaid) $warnings[]='Includes '.$directUnpaid.' direct Pay Later units under dashboard sales rules.';
     $variantRows=[]; foreach ($product['variants'] as $v) $variantRows[]=$v+['units'=>$variants[$v['sku']] ?? 0];
-    return ['request_id'=>bin2hex(random_bytes(12)),'generated_at'=>gmdate(DATE_ATOM),'business_timezone'=>'Asia/Jakarta','period'=>$p,'data'=>['measurement'=>'product_units_and_distinct_orders','monetary_totals_supported'=>false,'total_status'=>$complete?'complete_for_grant':'observed_partial_subtotal','product'=>$product['product'],'product_id'=>$product['product_id'],'brand'=>$product['brand'],'units'=>$units,'orders'=>count($orders),'variants'=>$variantRows,'units_by_account'=>$accountUnits,'excluded_units'=>$excluded,'direct_unpaid_units'=>$directUnpaid,'accounts_selected'=>array_values($accounts)],'provenance'=>['adapter_version'=>VERSION,'dashboard_url'=>$c['base_url'].'/dashboard/?view=overview','sources'=>$sources,'database_access_mode'=>$c['database_access_mode'] ?? 'dedicated_select_only','catalog_source'=>$c['catalog_source'] ?? 'database','catalog_snapshot_at'=>($c['catalog_source'] ?? '')==='passive_lookup_cache'?passiveCatalogTime($c):null,'last_complete_dashboard_snapshot'=>$snapshot,'date_basis'=>['marketplace'=>'order_create_time','website'=>'paid_at','direct'=>'listed_at or created_at','partner'=>'order_timestamp or created_at']],'completeness'=>['sources_queried'=>$complete,'business_total_verified'=>false,'per_account_sync_verified'=>false,'scoped_to_grant'=>true],'warnings'=>$warnings];
+    return ['request_id'=>bin2hex(random_bytes(12)),'generated_at'=>gmdate(DATE_ATOM),'business_timezone'=>'Asia/Jakarta','period'=>$p,'data'=>['measurement'=>'product_units_and_distinct_orders','monetary_totals_supported'=>false,'total_status'=>$complete?'complete_for_grant':'observed_partial_subtotal','product'=>$product['product'],'product_id'=>$product['product_id'],'brand'=>$product['brand'],'units'=>$units,'orders'=>count($orders),'variants'=>$variantRows,'units_by_account'=>$accountUnits,'excluded_units'=>$excluded,'direct_unpaid_units'=>$directUnpaid,'accounts_selected'=>array_values($accounts)],'provenance'=>['adapter_version'=>VERSION,'dashboard_url'=>$c['base_url'].'/dashboard/?view=overview','sources'=>$sources,'database_access_mode'=>$c['database_access_mode'] ?? 'dedicated_select_only','catalog_source'=>$c['catalog_source'] ?? 'database','catalog_snapshot_at'=>($c['catalog_source'] ?? '')==='passive_lookup_cache'?passiveCatalogTime($c):null,'last_complete_dashboard_snapshot'=>$snapshot,'date_basis'=>salesDateBasis($p)],'completeness'=>['sources_queried'=>$complete,'business_total_verified'=>false,'per_account_sync_verified'=>false,'scoped_to_grant'=>true],'warnings'=>$warnings];
 }
