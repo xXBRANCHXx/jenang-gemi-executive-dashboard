@@ -1,0 +1,1 @@
+Run `php assistant/tests/check.php` from the repository root. All654 checks use disposable fixtures and private temporary token state; no live DB, account credentials or business records. Native production table/source availability and actual cloud queries remain activation checks.

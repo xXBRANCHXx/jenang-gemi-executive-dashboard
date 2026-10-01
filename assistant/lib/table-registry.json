@@ -1,0 +1,1245 @@
+{
+  "accounting_accounts": {
+    "family": "accounting",
+    "database": "analytics",
+    "columns": {
+      "id": "integer",
+      "account_key": "string",
+      "name": "string",
+      "type": "string",
+      "platform": "string",
+      "brand": "string",
+      "currency": "string",
+      "opening_balance": "integer",
+      "current_balance_manual": "integer",
+      "is_spendable": "integer",
+      "balance_class": "string",
+      "can_pay": "integer",
+      "can_receive": "integer",
+      "is_active": "integer",
+      "updated_at": "datetime"
+    },
+    "grain": "physical stored records; no automatic status/void filters",
+    "date_basis": "native stored dates; datetime fields UTC unless table-specific dashboard documentation says otherwise",
+    "source_verified": "reviewed source DDL; live availability is checked on query",
+    "default_order": [
+      "id"
+    ]
+  },
+  "accounting_categories": {
+    "family": "accounting",
+    "database": "analytics",
+    "columns": {
+      "id": "integer",
+      "category_key": "string",
+      "parent_id": "integer",
+      "name": "string",
+      "type": "string",
+      "flow": "string",
+      "requires_receipt": "integer",
+      "is_billable": "integer",
+      "is_active": "integer"
+    },
+    "grain": "physical stored records; no automatic status/void filters",
+    "date_basis": "native stored dates; datetime fields UTC unless table-specific dashboard documentation says otherwise",
+    "source_verified": "reviewed source DDL; live availability is checked on query",
+    "default_order": [
+      "id"
+    ]
+  },
+  "accounting_pnl_category_settings": {
+    "family": "accounting",
+    "database": "analytics",
+    "columns": {
+      "category_id": "integer",
+      "include_in_net_profit": "integer",
+      "pnl_bucket": "string",
+      "updated_at": "datetime"
+    },
+    "grain": "physical stored records; no automatic status/void filters",
+    "date_basis": "native stored dates; datetime fields UTC unless table-specific dashboard documentation says otherwise",
+    "source_verified": "reviewed source DDL; live availability is checked on query",
+    "default_order": [
+      "category_id"
+    ]
+  },
+  "accounting_bills": {
+    "family": "accounting",
+    "database": "analytics",
+    "columns": {
+      "id": "integer",
+      "bill_key": "string",
+      "bill_no": "string",
+      "vendor_id": "integer",
+      "issue_date": "date",
+      "due_date": "date",
+      "business_month": "string",
+      "category_id": "integer",
+      "brand": "string",
+      "channel": "string",
+      "total_amount": "integer",
+      "paid_amount": "integer",
+      "outstanding_amount": "integer",
+      "status": "string",
+      "expected_account_id": "integer",
+      "receipt_status": "string",
+      "created_at": "datetime",
+      "updated_at": "datetime",
+      "voided_at": "datetime"
+    },
+    "grain": "physical stored records; no automatic status/void filters",
+    "date_basis": "native stored dates; datetime fields UTC unless table-specific dashboard documentation says otherwise",
+    "source_verified": "reviewed source DDL; live availability is checked on query",
+    "default_order": [
+      "id"
+    ]
+  },
+  "accounting_transactions": {
+    "family": "accounting",
+    "database": "analytics",
+    "columns": {
+      "id": "integer",
+      "transaction_key": "string",
+      "transaction_date": "date",
+      "business_month": "string",
+      "type": "string",
+      "direction": "string",
+      "status": "string",
+      "account_id": "integer",
+      "to_account_id": "integer",
+      "counterparty_id": "integer",
+      "category_id": "integer",
+      "bill_id": "integer",
+      "brand": "string",
+      "channel": "string",
+      "amount": "integer",
+      "transfer_fee_amount": "integer",
+      "currency": "string",
+      "payment_method": "string",
+      "receipt_status": "string",
+      "review_status": "string",
+      "created_at": "datetime",
+      "updated_at": "datetime",
+      "voided_at": "datetime"
+    },
+    "grain": "physical stored records; no automatic status/void filters",
+    "date_basis": "native stored dates; datetime fields UTC unless table-specific dashboard documentation says otherwise",
+    "source_verified": "reviewed source DDL; live availability is checked on query",
+    "default_order": [
+      "id"
+    ]
+  },
+  "accounting_bill_payments": {
+    "family": "accounting",
+    "database": "analytics",
+    "columns": {
+      "id": "integer",
+      "bill_id": "integer",
+      "transaction_id": "integer",
+      "payment_date": "date",
+      "amount": "integer",
+      "account_id": "integer",
+      "payment_method": "string",
+      "created_at": "datetime"
+    },
+    "grain": "physical stored records; no automatic status/void filters",
+    "date_basis": "native stored dates; datetime fields UTC unless table-specific dashboard documentation says otherwise",
+    "source_verified": "reviewed source DDL; live availability is checked on query",
+    "default_order": [
+      "id"
+    ]
+  },
+  "accounting_partner_bill_receipts": {
+    "family": "accounting",
+    "database": "analytics",
+    "columns": {
+      "id": "integer",
+      "partner_bill_id": "string",
+      "partner_code": "string",
+      "amount": "integer",
+      "transaction_id": "integer",
+      "confirmed_at": "datetime"
+    },
+    "grain": "physical stored records; no automatic status/void filters",
+    "date_basis": "native stored dates; datetime fields UTC unless table-specific dashboard documentation says otherwise",
+    "source_verified": "reviewed source DDL; live availability is checked on query",
+    "default_order": [
+      "id"
+    ]
+  },
+  "accounting_cash_reconciliations": {
+    "family": "accounting",
+    "database": "analytics",
+    "columns": {
+      "id": "integer",
+      "reconciliation_key": "string",
+      "account_id": "integer",
+      "available_cash_amount": "integer",
+      "cutoff_transaction_id": "integer",
+      "reconciled_at": "datetime"
+    },
+    "grain": "physical stored records; no automatic status/void filters",
+    "date_basis": "native stored dates; datetime fields UTC unless table-specific dashboard documentation says otherwise",
+    "source_verified": "reviewed source DDL; live availability is checked on query",
+    "default_order": [
+      "id"
+    ]
+  },
+  "accounting_automatic_deposit_routes": {
+    "family": "accounting",
+    "database": "analytics",
+    "columns": {
+      "id": "integer",
+      "account_id": "integer",
+      "effective_at": "datetime",
+      "created_at": "datetime"
+    },
+    "grain": "physical stored records; no automatic status/void filters",
+    "date_basis": "native stored dates; datetime fields UTC unless table-specific dashboard documentation says otherwise",
+    "source_verified": "reviewed source DDL; live availability is checked on query",
+    "default_order": [
+      "id"
+    ]
+  },
+  "ad_view_campaigns": {
+    "family": "ads",
+    "database": "analytics",
+    "columns": {
+      "account_key": "string",
+      "campaign_id": "integer",
+      "alias_name": "string",
+      "is_tracked": "integer",
+      "created_at": "datetime",
+      "updated_at": "datetime"
+    },
+    "grain": "physical stored records; no automatic status/void filters",
+    "date_basis": "native stored dates; datetime fields UTC unless table-specific dashboard documentation says otherwise",
+    "source_verified": "reviewed source DDL; live availability is checked on query",
+    "default_order": [
+      "account_key"
+    ]
+  },
+  "ad_view_budgets": {
+    "family": "ads",
+    "database": "analytics",
+    "columns": {
+      "account_key": "string",
+      "budget_month": "string",
+      "monthly_budget": "decimal",
+      "updated_at": "datetime"
+    },
+    "grain": "physical stored records; no automatic status/void filters",
+    "date_basis": "native stored dates; datetime fields UTC unless table-specific dashboard documentation says otherwise",
+    "source_verified": "reviewed source DDL; live availability is checked on query",
+    "default_order": [
+      "account_key"
+    ]
+  },
+  "ad_view_credit_alerts": {
+    "family": "ads",
+    "database": "analytics",
+    "columns": {
+      "account_key": "string",
+      "alert_threshold": "decimal",
+      "updated_at": "datetime"
+    },
+    "grain": "physical stored records; no automatic status/void filters",
+    "date_basis": "native stored dates; datetime fields UTC unless table-specific dashboard documentation says otherwise",
+    "source_verified": "reviewed source DDL; live availability is checked on query",
+    "default_order": [
+      "account_key"
+    ]
+  },
+  "ad_view_events": {
+    "family": "ads",
+    "database": "analytics",
+    "columns": {
+      "id": "integer",
+      "account_key": "string",
+      "campaign_id": "integer",
+      "event_at": "datetime",
+      "event_type": "string",
+      "before_value": "string",
+      "after_value": "string",
+      "created_at": "datetime"
+    },
+    "grain": "physical stored records; no automatic status/void filters",
+    "date_basis": "native stored dates; datetime fields UTC unless table-specific dashboard documentation says otherwise",
+    "source_verified": "reviewed source DDL; live availability is checked on query",
+    "default_order": [
+      "id"
+    ]
+  },
+  "executive_chart_context": {
+    "family": "sales",
+    "database": "analytics",
+    "columns": {
+      "period_key": "string",
+      "granularity": "string",
+      "revenue": "integer",
+      "gross_profit": "integer",
+      "orders_qty": "integer",
+      "items_qty": "integer",
+      "updated_at": "datetime"
+    },
+    "grain": "physical stored records; no automatic status/void filters",
+    "date_basis": "native stored dates; datetime fields UTC unless table-specific dashboard documentation says otherwise",
+    "source_verified": "reviewed source DDL; live availability is checked on query",
+    "default_order": [
+      "period_key"
+    ]
+  },
+  "dashboard_order_mirror": {
+    "family": "sales",
+    "database": "analytics",
+    "columns": {
+      "id": "integer",
+      "platform": "string",
+      "account_key": "string",
+      "order_id": "string",
+      "sku": "string",
+      "status": "string",
+      "order_create_time": "datetime",
+      "order_create_date": "date",
+      "brand_name": "string",
+      "base_product_name": "string",
+      "flavor_name": "string",
+      "quantity": "integer",
+      "is_free_gift": "integer",
+      "revenue": "decimal",
+      "order_net_revenue": "decimal",
+      "gross_revenue": "decimal",
+      "marketplace_fees": "decimal",
+      "funds_released": "integer",
+      "funds_released_at": "datetime",
+      "funds_released_amount": "decimal",
+      "funds_release_status": "string",
+      "cogs": "decimal",
+      "gross_profit": "decimal",
+      "source_updated_at": "datetime",
+      "mirrored_at": "datetime",
+      "deleted_at": "datetime"
+    },
+    "grain": "physical stored records; no automatic status/void filters",
+    "date_basis": "native stored dates; datetime fields UTC unless table-specific dashboard documentation says otherwise",
+    "source_verified": "reviewed source DDL; live availability is checked on query",
+    "default_order": [
+      "id"
+    ]
+  },
+  "dashboard_wallet_releases": {
+    "family": "wallets",
+    "database": "analytics",
+    "columns": {
+      "id": "integer",
+      "platform": "string",
+      "account_key": "string",
+      "amount": "decimal",
+      "withdrawn_at": "datetime",
+      "created_at": "datetime",
+      "undone_at": "datetime"
+    },
+    "grain": "physical stored records; no automatic status/void filters",
+    "date_basis": "native stored dates; datetime fields UTC unless table-specific dashboard documentation says otherwise",
+    "source_verified": "reviewed source DDL; live availability is checked on query",
+    "default_order": [
+      "id"
+    ]
+  },
+  "dashboard_wallet_balance_anchors": {
+    "family": "wallets",
+    "database": "analytics",
+    "columns": {
+      "id": "integer",
+      "platform": "string",
+      "account_key": "string",
+      "balance_amount": "decimal",
+      "observed_at": "datetime",
+      "created_at": "datetime",
+      "undone_at": "datetime"
+    },
+    "grain": "physical stored records; no automatic status/void filters",
+    "date_basis": "native stored dates; datetime fields UTC unless table-specific dashboard documentation says otherwise",
+    "source_verified": "reviewed source DDL; live availability is checked on query",
+    "default_order": [
+      "id"
+    ]
+  },
+  "dashboard_wallet_platform_transactions": {
+    "family": "wallets",
+    "database": "analytics",
+    "columns": {
+      "id": "integer",
+      "platform": "string",
+      "account_key": "string",
+      "transaction_type": "string",
+      "money_flow": "string",
+      "amount": "decimal",
+      "current_balance": "decimal",
+      "transaction_at": "datetime",
+      "synced_at": "datetime"
+    },
+    "grain": "physical stored records; no automatic status/void filters",
+    "date_basis": "native stored dates; datetime fields UTC unless table-specific dashboard documentation says otherwise",
+    "source_verified": "reviewed source DDL; live availability is checked on query",
+    "default_order": [
+      "id"
+    ]
+  },
+  "website_orders": {
+    "family": "sales",
+    "database": "analytics",
+    "columns": {
+      "id": "integer",
+      "platform": "string",
+      "order_id": "string",
+      "status": "string",
+      "gross_revenue": "decimal",
+      "net_revenue": "decimal",
+      "marketplace_fees": "decimal",
+      "cogs": "decimal",
+      "paid_at": "datetime",
+      "listed_at": "datetime",
+      "fulfilled_at": "datetime",
+      "created_at": "datetime",
+      "updated_at": "datetime"
+    },
+    "grain": "physical stored records; no automatic status/void filters",
+    "date_basis": "native stored dates; datetime fields UTC unless table-specific dashboard documentation says otherwise",
+    "source_verified": "reviewed source DDL; live availability is checked on query",
+    "default_order": [
+      "id"
+    ]
+  },
+  "website_order_items": {
+    "family": "sales",
+    "database": "analytics",
+    "columns": {
+      "id": "integer",
+      "website_order_id": "integer",
+      "sku": "string",
+      "product_name": "string",
+      "option_name": "string",
+      "size_label": "string",
+      "quantity": "integer",
+      "unit_gross_price": "decimal",
+      "unit_net_price": "decimal",
+      "unit_cogs": "decimal",
+      "created_at": "datetime"
+    },
+    "grain": "physical stored records; no automatic status/void filters",
+    "date_basis": "native stored dates; datetime fields UTC unless table-specific dashboard documentation says otherwise",
+    "source_verified": "reviewed source DDL; live availability is checked on query",
+    "default_order": [
+      "id"
+    ]
+  },
+  "whatsapp_orders": {
+    "family": "sales",
+    "database": "analytics",
+    "columns": {
+      "id": "integer",
+      "order_id": "string",
+      "status": "string",
+      "sales_channel": "string",
+      "pay_later": "integer",
+      "payment_status": "string",
+      "payment_method": "string",
+      "paid_at": "datetime",
+      "archived_at": "datetime",
+      "archive_hide_charts": "integer",
+      "archive_hide_financials": "integer",
+      "merchandise_subtotal": "decimal",
+      "merchandise_total": "decimal",
+      "discount_type": "string",
+      "discount_value": "decimal",
+      "discount_total": "decimal",
+      "shipping_cost": "decimal",
+      "listed_at": "datetime",
+      "fulfilled_at": "datetime",
+      "created_at": "datetime",
+      "updated_at": "datetime"
+    },
+    "grain": "physical stored records; no automatic status/void filters",
+    "date_basis": "native stored dates; datetime fields UTC unless table-specific dashboard documentation says otherwise",
+    "source_verified": "reviewed source DDL; live availability is checked on query",
+    "default_order": [
+      "id"
+    ]
+  },
+  "whatsapp_order_items": {
+    "family": "sales",
+    "database": "analytics",
+    "columns": {
+      "id": "integer",
+      "whatsapp_order_id": "integer",
+      "sku": "string",
+      "product_name": "string",
+      "brand_name": "string",
+      "base_product_name": "string",
+      "flavor_name": "string",
+      "quantity": "integer",
+      "unit_price": "decimal",
+      "unit_cogs": "decimal",
+      "discount_rate": "decimal",
+      "discount_total": "decimal",
+      "line_total": "decimal",
+      "created_at": "datetime"
+    },
+    "grain": "physical stored records; no automatic status/void filters",
+    "date_basis": "native stored dates; datetime fields UTC unless table-specific dashboard documentation says otherwise",
+    "source_verified": "reviewed source DDL; live availability is checked on query",
+    "default_order": [
+      "id"
+    ]
+  },
+  "partner_profiles": {
+    "family": "partners",
+    "database": "partner",
+    "columns": {
+      "code": "string",
+      "partner_class": "string",
+      "billing_period_type": "string",
+      "discount_enabled": "integer",
+      "discount_percent": "decimal",
+      "created_at": "datetime",
+      "updated_at": "datetime"
+    },
+    "grain": "physical stored records; no automatic status/void filters",
+    "date_basis": "native stored dates; datetime fields UTC unless table-specific dashboard documentation says otherwise",
+    "source_verified": "reviewed source DDL; live availability is checked on query",
+    "default_order": [
+      "code"
+    ]
+  },
+  "partner_orders": {
+    "family": "partners",
+    "database": "partner",
+    "columns": {
+      "id": "string",
+      "partner_code": "string",
+      "brand_name": "string",
+      "product_name": "string",
+      "sku_code": "string",
+      "quantity": "integer",
+      "status": "string",
+      "order_timestamp": "datetime",
+      "marketplace_platform": "string",
+      "revenue_total": "decimal",
+      "archived_at": "datetime",
+      "billing_status": "string",
+      "billing_paid_at": "datetime",
+      "created_at": "datetime",
+      "updated_at": "datetime"
+    },
+    "grain": "physical stored records; no automatic status/void filters",
+    "date_basis": "native stored dates; datetime fields UTC unless table-specific dashboard documentation says otherwise",
+    "source_verified": "reviewed source DDL; live availability is checked on query",
+    "default_order": [
+      "id"
+    ]
+  },
+  "partner_weekly_bills": {
+    "family": "partners",
+    "database": "partner",
+    "columns": {
+      "bill_id": "string",
+      "partner_code": "string",
+      "period_type": "string",
+      "period_start": "date",
+      "period_end": "date",
+      "due_date": "date",
+      "status": "string",
+      "subtotal_amount": "integer",
+      "adjustment_amount": "integer",
+      "total_amount": "integer",
+      "paid_at": "datetime",
+      "created_at": "datetime",
+      "updated_at": "datetime"
+    },
+    "grain": "physical stored records; no automatic status/void filters",
+    "date_basis": "native stored dates; datetime fields UTC unless table-specific dashboard documentation says otherwise",
+    "source_verified": "reviewed source DDL; live availability is checked on query",
+    "default_order": [
+      "bill_id"
+    ]
+  },
+  "partner_weekly_bill_items": {
+    "family": "partners",
+    "database": "partner",
+    "columns": {
+      "id": "integer",
+      "bill_id": "string",
+      "partner_code": "string",
+      "order_id": "string",
+      "order_date": "datetime",
+      "platform": "string",
+      "units": "integer",
+      "amount": "integer",
+      "status": "string",
+      "dispute_id": "integer",
+      "paid_at": "datetime",
+      "created_at": "datetime",
+      "updated_at": "datetime"
+    },
+    "grain": "physical stored records; no automatic status/void filters",
+    "date_basis": "native stored dates; datetime fields UTC unless table-specific dashboard documentation says otherwise",
+    "source_verified": "reviewed source DDL; live availability is checked on query",
+    "default_order": [
+      "id"
+    ]
+  },
+  "partner_weekly_bill_payments": {
+    "family": "partners",
+    "database": "partner",
+    "columns": {
+      "id": "integer",
+      "payment_key": "string",
+      "bill_id": "string",
+      "partner_code": "string",
+      "amount": "integer",
+      "status": "string",
+      "submitted_at": "datetime",
+      "confirmed_at": "datetime",
+      "accounting_transaction_id": "integer",
+      "updated_at": "datetime"
+    },
+    "grain": "physical stored records; no automatic status/void filters",
+    "date_basis": "native stored dates; datetime fields UTC unless table-specific dashboard documentation says otherwise",
+    "source_verified": "reviewed source DDL; live availability is checked on query",
+    "default_order": [
+      "id"
+    ]
+  },
+  "partner_return_adjustments": {
+    "family": "partners",
+    "database": "partner",
+    "columns": {
+      "id": "integer",
+      "adjustment_key": "string",
+      "return_number": "string",
+      "partner_code": "string",
+      "original_order_id": "string",
+      "bill_id": "string",
+      "bill_item_id": "integer",
+      "fault_party": "string",
+      "condition_code": "string",
+      "rate_basis_points": "integer",
+      "selected_value": "integer",
+      "adjustment_amount": "integer",
+      "created_at": "datetime"
+    },
+    "grain": "physical stored records; no automatic status/void filters",
+    "date_basis": "native stored dates; datetime fields UTC unless table-specific dashboard documentation says otherwise",
+    "source_verified": "reviewed source DDL; live availability is checked on query",
+    "default_order": [
+      "id"
+    ]
+  },
+  "partner_order_payments": {
+    "family": "partners",
+    "database": "partner",
+    "columns": {
+      "id": "integer",
+      "partner_code": "string",
+      "order_id": "string",
+      "amount": "decimal",
+      "payment_date": "date",
+      "payment_method": "string",
+      "source_type": "string",
+      "source_accounting_transaction_id": "integer",
+      "created_at": "datetime",
+      "voided_at": "datetime"
+    },
+    "grain": "physical stored records; no automatic status/void filters",
+    "date_basis": "native stored dates; datetime fields UTC unless table-specific dashboard documentation says otherwise",
+    "source_verified": "reviewed source DDL; live availability is checked on query",
+    "default_order": [
+      "id"
+    ]
+  },
+  "partner_wallets": {
+    "family": "wallets",
+    "database": "partner",
+    "columns": {
+      "partner_code": "string",
+      "balance": "decimal",
+      "created_at": "datetime",
+      "updated_at": "datetime"
+    },
+    "grain": "physical stored records; no automatic status/void filters",
+    "date_basis": "native stored dates; datetime fields UTC unless table-specific dashboard documentation says otherwise",
+    "source_verified": "reviewed source DDL; live availability is checked on query",
+    "default_order": [
+      "partner_code"
+    ]
+  },
+  "partner_wallet_transactions": {
+    "family": "wallets",
+    "database": "partner",
+    "columns": {
+      "id": "integer",
+      "partner_code": "string",
+      "transaction_type": "string",
+      "amount": "decimal",
+      "balance_after": "decimal",
+      "reference_type": "string",
+      "created_at": "datetime"
+    },
+    "grain": "physical stored records; no automatic status/void filters",
+    "date_basis": "native stored dates; datetime fields UTC unless table-specific dashboard documentation says otherwise",
+    "source_verified": "reviewed source DDL; live availability is checked on query",
+    "default_order": [
+      "id"
+    ]
+  },
+  "partner_deposit_requests": {
+    "family": "partners",
+    "database": "partner",
+    "columns": {
+      "id": "integer",
+      "partner_code": "string",
+      "requested_amount": "decimal",
+      "approved_amount": "decimal",
+      "status": "string",
+      "submitted_at": "datetime",
+      "reviewed_at": "datetime",
+      "updated_at": "datetime"
+    },
+    "grain": "physical stored records; no automatic status/void filters",
+    "date_basis": "native stored dates; datetime fields UTC unless table-specific dashboard documentation says otherwise",
+    "source_verified": "reviewed source DDL; live availability is checked on query",
+    "default_order": [
+      "id"
+    ]
+  },
+  "profit_loss_sku_inputs": {
+    "family": "accounting",
+    "database": "analytics",
+    "columns": {
+      "year": "integer",
+      "month": "integer",
+      "sku": "string",
+      "cogs_override": "decimal",
+      "packaging_per_unit": "decimal",
+      "labor_per_unit": "decimal",
+      "other_per_unit": "decimal",
+      "updated_at": "datetime"
+    },
+    "grain": "physical stored records; no automatic status/void filters",
+    "date_basis": "native stored dates; datetime fields UTC unless table-specific dashboard documentation says otherwise",
+    "source_verified": "reviewed source DDL; live availability is checked on query",
+    "default_order": [
+      "year"
+    ]
+  },
+  "profit_loss_entries": {
+    "family": "accounting",
+    "database": "analytics",
+    "columns": {
+      "id": "integer",
+      "year": "integer",
+      "month": "integer",
+      "section": "string",
+      "label": "string",
+      "amount": "decimal",
+      "created_at": "datetime",
+      "updated_at": "datetime"
+    },
+    "grain": "physical stored records; no automatic status/void filters",
+    "date_basis": "native stored dates; datetime fields UTC unless table-specific dashboard documentation says otherwise",
+    "source_verified": "reviewed source DDL; live availability is checked on query",
+    "default_order": [
+      "id"
+    ]
+  },
+  "profit_loss_settings": {
+    "family": "accounting",
+    "database": "analytics",
+    "columns": {
+      "year": "integer",
+      "reinvest_pct": "decimal",
+      "offering_pct": "decimal",
+      "ownership_pct": "decimal",
+      "director_pct": "decimal",
+      "bng_loan_pct": "decimal",
+      "commissioner_pct": "decimal",
+      "advisor_pct": "decimal",
+      "updated_at": "datetime"
+    },
+    "grain": "physical stored records; no automatic status/void filters",
+    "date_basis": "native stored dates; datetime fields UTC unless table-specific dashboard documentation says otherwise",
+    "source_verified": "reviewed source DDL; live availability is checked on query",
+    "default_order": [
+      "year"
+    ]
+  },
+  "profit_loss_statement_metrics": {
+    "family": "accounting",
+    "database": "analytics",
+    "columns": {
+      "id": "integer",
+      "metric_key": "string",
+      "label": "string",
+      "value_key": "string",
+      "display_format": "string",
+      "is_visible": "integer",
+      "sort_order": "integer",
+      "created_at": "datetime",
+      "updated_at": "datetime"
+    },
+    "grain": "physical stored records; no automatic status/void filters",
+    "date_basis": "native stored dates; datetime fields UTC unless table-specific dashboard documentation says otherwise",
+    "source_verified": "reviewed source DDL; live availability is checked on query",
+    "default_order": [
+      "id"
+    ]
+  },
+  "sku_brands": {
+    "family": "catalog",
+    "database": "sku",
+    "columns": {
+      "id": "string",
+      "name": "string",
+      "code": "string",
+      "created_at": "datetime"
+    },
+    "grain": "physical stored records; no automatic status/void filters",
+    "date_basis": "native stored dates; datetime fields UTC unless table-specific dashboard documentation says otherwise",
+    "source_verified": "reviewed source DDL; live availability is checked on query",
+    "default_order": [
+      "id"
+    ]
+  },
+  "sku_units": {
+    "family": "catalog",
+    "database": "sku",
+    "columns": {
+      "id": "string",
+      "name": "string",
+      "code": "string",
+      "created_at": "datetime"
+    },
+    "grain": "physical stored records; no automatic status/void filters",
+    "date_basis": "native stored dates; datetime fields UTC unless table-specific dashboard documentation says otherwise",
+    "source_verified": "reviewed source DDL; live availability is checked on query",
+    "default_order": [
+      "id"
+    ]
+  },
+  "sku_flavors": {
+    "family": "catalog",
+    "database": "sku",
+    "columns": {
+      "id": "string",
+      "brand_id": "string",
+      "name": "string",
+      "code": "string",
+      "created_at": "datetime"
+    },
+    "grain": "physical stored records; no automatic status/void filters",
+    "date_basis": "native stored dates; datetime fields UTC unless table-specific dashboard documentation says otherwise",
+    "source_verified": "reviewed source DDL; live availability is checked on query",
+    "default_order": [
+      "id"
+    ]
+  },
+  "sku_products": {
+    "family": "catalog",
+    "database": "sku",
+    "columns": {
+      "id": "string",
+      "brand_id": "string",
+      "name": "string",
+      "code": "string",
+      "created_at": "datetime"
+    },
+    "grain": "physical stored records; no automatic status/void filters",
+    "date_basis": "native stored dates; datetime fields UTC unless table-specific dashboard documentation says otherwise",
+    "source_verified": "reviewed source DDL; live availability is checked on query",
+    "default_order": [
+      "id"
+    ]
+  },
+  "sku_skus": {
+    "family": "stock",
+    "database": "sku",
+    "columns": {
+      "sku": "string",
+      "tag": "string",
+      "brand_id": "string",
+      "unit_id": "string",
+      "volume": "decimal",
+      "astra": "decimal",
+      "astra_weight_grams": "integer",
+      "package_length_cm": "decimal",
+      "package_width_cm": "decimal",
+      "package_height_cm": "decimal",
+      "flavor_id": "string",
+      "product_id": "string",
+      "starting_stock": "integer",
+      "current_stock": "integer",
+      "stock_trigger": "integer",
+      "inventory_mode": "string",
+      "purchase_moq": "integer",
+      "skip_scan": "integer",
+      "cogs": "decimal",
+      "packing_required": "integer",
+      "sale_price": "decimal",
+      "created_at": "datetime",
+      "updated_at": "datetime"
+    },
+    "grain": "physical stored records; no automatic status/void filters",
+    "date_basis": "native stored dates; datetime fields UTC unless table-specific dashboard documentation says otherwise",
+    "source_verified": "reviewed source DDL; live availability is checked on query",
+    "default_order": [
+      "sku"
+    ]
+  },
+  "sku_cogs_history": {
+    "family": "stock",
+    "database": "sku",
+    "columns": {
+      "id": "integer",
+      "sku": "string",
+      "old_price": "decimal",
+      "new_price": "decimal",
+      "takes_place": "string",
+      "change_mode": "string",
+      "effective_at": "datetime",
+      "effective_until": "datetime",
+      "recorded_at": "datetime"
+    },
+    "grain": "physical stored records; no automatic status/void filters",
+    "date_basis": "native stored dates; datetime fields UTC unless table-specific dashboard documentation says otherwise",
+    "source_verified": "reviewed source DDL; live availability is checked on query",
+    "default_order": [
+      "id"
+    ]
+  },
+  "sku_packing_costs": {
+    "family": "stock",
+    "database": "sku",
+    "columns": {
+      "year": "integer",
+      "month": "integer",
+      "sku": "string",
+      "packing_per_item": "decimal",
+      "updated_at": "datetime"
+    },
+    "grain": "physical stored records; no automatic status/void filters",
+    "date_basis": "native stored dates; datetime fields UTC unless table-specific dashboard documentation says otherwise",
+    "source_verified": "reviewed source DDL; live availability is checked on query",
+    "default_order": [
+      "year"
+    ]
+  },
+  "sku_stock_lots": {
+    "family": "stock",
+    "database": "sku",
+    "columns": {
+      "id": "integer",
+      "sku": "string",
+      "po_number": "string",
+      "received_qty_astra": "decimal",
+      "remaining_qty_astra": "decimal",
+      "cogs_per_astra": "decimal",
+      "received_at": "datetime",
+      "created_at": "datetime",
+      "updated_at": "datetime"
+    },
+    "grain": "physical stored records; no automatic status/void filters",
+    "date_basis": "native stored dates; datetime fields UTC unless table-specific dashboard documentation says otherwise",
+    "source_verified": "reviewed source DDL; live availability is checked on query",
+    "default_order": [
+      "id"
+    ]
+  },
+  "marketplace_order_inventory_allocations": {
+    "family": "stock",
+    "database": "sku",
+    "columns": {
+      "id": "integer",
+      "platform": "string",
+      "account_key": "string",
+      "sku": "string",
+      "stock_lot_id": "integer",
+      "po_number": "string",
+      "qty_astra_consumed": "decimal",
+      "cogs_per_astra": "decimal",
+      "total_cogs": "decimal",
+      "consumed_at": "datetime",
+      "created_at": "datetime"
+    },
+    "grain": "physical stored records; no automatic status/void filters",
+    "date_basis": "native stored dates; datetime fields UTC unless table-specific dashboard documentation says otherwise",
+    "source_verified": "reviewed source DDL; live availability is checked on query",
+    "default_order": [
+      "id"
+    ]
+  },
+  "purchase_orders": {
+    "family": "purchasing",
+    "database": "sku",
+    "columns": {
+      "id": "integer",
+      "po_number": "string",
+      "status": "string",
+      "line_count": "integer",
+      "ordered_qty": "integer",
+      "received_qty": "integer",
+      "estimated_total": "decimal",
+      "placed_at": "datetime",
+      "updated_at": "datetime",
+      "completed_at": "datetime"
+    },
+    "grain": "physical stored records; no automatic status/void filters",
+    "date_basis": "native stored dates; datetime fields UTC unless table-specific dashboard documentation says otherwise",
+    "source_verified": "reviewed source DDL; live availability is checked on query",
+    "default_order": [
+      "id"
+    ]
+  },
+  "purchase_order_items": {
+    "family": "purchasing",
+    "database": "sku",
+    "columns": {
+      "id": "integer",
+      "purchase_order_id": "integer",
+      "sku": "string",
+      "product_name": "string",
+      "moq": "integer",
+      "ordered_qty": "integer",
+      "received_qty": "integer",
+      "unit_cost": "decimal",
+      "created_at": "datetime",
+      "updated_at": "datetime"
+    },
+    "grain": "physical stored records; no automatic status/void filters",
+    "date_basis": "native stored dates; datetime fields UTC unless table-specific dashboard documentation says otherwise",
+    "source_verified": "reviewed source DDL; live availability is checked on query",
+    "default_order": [
+      "id"
+    ]
+  },
+  "purchase_order_receipts": {
+    "family": "purchasing",
+    "database": "sku",
+    "columns": {
+      "id": "integer",
+      "purchase_order_id": "integer",
+      "purchase_order_item_id": "integer",
+      "sku": "string",
+      "quantity": "integer",
+      "received_at": "datetime"
+    },
+    "grain": "physical stored records; no automatic status/void filters",
+    "date_basis": "native stored dates; datetime fields UTC unless table-specific dashboard documentation says otherwise",
+    "source_verified": "reviewed source DDL; live availability is checked on query",
+    "default_order": [
+      "id"
+    ]
+  },
+  "purchase_order_payments": {
+    "family": "purchasing",
+    "database": "sku",
+    "columns": {
+      "id": "integer",
+      "purchase_order_id": "integer",
+      "amount": "decimal",
+      "payment_mode": "string",
+      "paid_at": "datetime"
+    },
+    "grain": "physical stored records; no automatic status/void filters",
+    "date_basis": "native stored dates; datetime fields UTC unless table-specific dashboard documentation says otherwise",
+    "source_verified": "reviewed source DDL; live availability is checked on query",
+    "default_order": [
+      "id"
+    ]
+  },
+  "zero_store_items": {
+    "family": "website",
+    "database": "analytics",
+    "columns": {
+      "item_key": "string",
+      "product_slug": "string",
+      "product_name": "string",
+      "option_id": "string",
+      "option_name": "string",
+      "size_id": "string",
+      "size_label": "string",
+      "sku": "string",
+      "site_price": "decimal",
+      "is_active": "integer",
+      "created_at": "datetime",
+      "updated_at": "datetime"
+    },
+    "grain": "physical stored records; no automatic status/void filters",
+    "date_basis": "native stored dates; datetime fields UTC unless table-specific dashboard documentation says otherwise",
+    "source_verified": "reviewed source DDL; live availability is checked on query",
+    "default_order": [
+      "item_key"
+    ]
+  },
+  "zero_store_discounts": {
+    "family": "website",
+    "database": "analytics",
+    "columns": {
+      "id": "integer",
+      "name": "string",
+      "discount_type": "string",
+      "amount": "decimal",
+      "starts_on": "date",
+      "ends_on": "date",
+      "is_active": "integer",
+      "created_at": "datetime",
+      "updated_at": "datetime"
+    },
+    "grain": "physical stored records; no automatic status/void filters",
+    "date_basis": "native stored dates; datetime fields UTC unless table-specific dashboard documentation says otherwise",
+    "source_verified": "reviewed source DDL; live availability is checked on query",
+    "default_order": [
+      "id"
+    ]
+  },
+  "zero_store_discount_items": {
+    "family": "website",
+    "database": "analytics",
+    "columns": {
+      "discount_id": "integer",
+      "item_key": "string",
+      "created_at": "datetime"
+    },
+    "grain": "physical stored records; no automatic status/void filters",
+    "date_basis": "native stored dates; datetime fields UTC unless table-specific dashboard documentation says otherwise",
+    "source_verified": "reviewed source DDL; live availability is checked on query",
+    "default_order": [
+      "discount_id"
+    ]
+  },
+  "jenang_gemi_store_items": {
+    "family": "website",
+    "database": "analytics",
+    "columns": {
+      "item_key": "string",
+      "product_slug": "string",
+      "product_name": "string",
+      "option_id": "string",
+      "option_name": "string",
+      "size_id": "string",
+      "size_label": "string",
+      "sku": "string",
+      "site_price": "decimal",
+      "is_active": "integer",
+      "created_at": "datetime",
+      "updated_at": "datetime"
+    },
+    "grain": "physical stored records; no automatic status/void filters",
+    "date_basis": "native stored dates; datetime fields UTC unless table-specific dashboard documentation says otherwise",
+    "source_verified": "reviewed source DDL; live availability is checked on query",
+    "default_order": [
+      "item_key"
+    ]
+  },
+  "jenang_gemi_store_discounts": {
+    "family": "website",
+    "database": "analytics",
+    "columns": {
+      "id": "integer",
+      "name": "string",
+      "discount_type": "string",
+      "amount": "decimal",
+      "starts_on": "date",
+      "ends_on": "date",
+      "is_active": "integer",
+      "created_at": "datetime",
+      "updated_at": "datetime"
+    },
+    "grain": "physical stored records; no automatic status/void filters",
+    "date_basis": "native stored dates; datetime fields UTC unless table-specific dashboard documentation says otherwise",
+    "source_verified": "reviewed source DDL; live availability is checked on query",
+    "default_order": [
+      "id"
+    ]
+  },
+  "jenang_gemi_store_discount_items": {
+    "family": "website",
+    "database": "analytics",
+    "columns": {
+      "discount_id": "integer",
+      "item_key": "string",
+      "created_at": "datetime"
+    },
+    "grain": "physical stored records; no automatic status/void filters",
+    "date_basis": "native stored dates; datetime fields UTC unless table-specific dashboard documentation says otherwise",
+    "source_verified": "reviewed source DDL; live availability is checked on query",
+    "default_order": [
+      "discount_id"
+    ]
+  },
+  "zero_blog_posts": {
+    "family": "website",
+    "database": "analytics",
+    "columns": {
+      "id": "integer",
+      "title": "string",
+      "slug": "string",
+      "excerpt": "string",
+      "body_text": "string",
+      "topic": "string",
+      "status": "string",
+      "seo_title": "string",
+      "seo_description": "string",
+      "featured_asset_id": "integer",
+      "scheduled_at": "datetime",
+      "version": "integer",
+      "created_at": "datetime",
+      "updated_at": "datetime"
+    },
+    "grain": "physical stored records; no automatic status/void filters",
+    "date_basis": "native stored dates; datetime fields UTC unless table-specific dashboard documentation says otherwise",
+    "source_verified": "reviewed source DDL; live availability is checked on query",
+    "default_order": [
+      "id"
+    ]
+  },
+  "zero_blog_post_styles": {
+    "family": "website",
+    "database": "analytics",
+    "columns": {
+      "post_id": "integer",
+      "font_key": "string",
+      "updated_at": "datetime"
+    },
+    "grain": "physical stored records; no automatic status/void filters",
+    "date_basis": "native stored dates; datetime fields UTC unless table-specific dashboard documentation says otherwise",
+    "source_verified": "reviewed source DDL; live availability is checked on query",
+    "default_order": [
+      "post_id"
+    ]
+  },
+  "customer_activity": {
+    "family": "customer_aggregates",
+    "database": "analytics",
+    "physical_table": "analytics_events",
+    "columns": {
+      "event_type": "string",
+      "site_key": "string",
+      "source": "string",
+      "traffic_kind": "string",
+      "product_code": "string",
+      "product_label": "string",
+      "flavor_code": "string",
+      "flavor_label": "string",
+      "package_size": "string",
+      "conversion_status": "string",
+      "occurred_at": "datetime"
+    },
+    "aggregate_only": true,
+    "grain": "events, not unique customers; count is event count",
+    "date_basis": "occurred_at UTC",
+    "default_order": [
+      "event_type"
+    ]
+  }
+}

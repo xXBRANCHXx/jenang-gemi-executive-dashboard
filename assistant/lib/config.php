@@ -1,8 +1,11 @@
 <?php
 declare(strict_types=1);
 namespace JenangMcp;
-const VERSION = '0.1.0';
+const VERSION = '0.2.0';
 const SCOPE = 'jg:sales:read';
+const TABLE_SCOPE = 'jg:dashboard:read';
+const TABLE_FAMILIES = ['catalog','sales','stock','purchasing','accounting','wallets','partners','ads','customer_aggregates','website'];
+function allowedScopes(array $c): array { return !empty($c['table_access_approved']) && ($c['table_families'] ?? [])===TABLE_FAMILIES ? [SCOPE,TABLE_SCOPE] : [SCOPE]; }
 const PROTOCOLS = ['2025-03-26', '2025-06-18', '2025-11-25'];
 function config(): array {
     $path = getenv('JG_MCP_CONFIG_FILE') ?: '';
@@ -24,6 +27,7 @@ function config(): array {
     if (!$stateDir || ($root && str_starts_with($stateDir, $root . DIRECTORY_SEPARATOR)) || !is_writable($stateDir)) throw new \RuntimeException('Private adapter storage is unavailable.');
     $mode=$c['database_access_mode'] ?? 'dedicated_select_only';
     if (!in_array($mode,['dedicated_select_only','app_internal_readonly'],true) || ($mode==='app_internal_readonly' && (empty($c['app_internal_readonly_approved']) || $c['partners']!==[]))) throw new \RuntimeException('Database security mode is not approved.');
+    if (!empty($c['table_access_approved']) && (($c['table_families'] ?? [])!==TABLE_FAMILIES || $mode!=='app_internal_readonly')) throw new \RuntimeException('Dashboard read grant configuration is invalid.');
     return $c;
 }
 function resource(array $c): string { return $c['base_url'] . '/assistant/mcp/'; }
